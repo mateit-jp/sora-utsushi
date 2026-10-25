@@ -1,0 +1,11 @@
+/dist/
+/data/
+/node_modules/
+/.wrangler/
+__pycache__/
+*.pyc
+*.tmp
+.DS_Store
+.env
+.env.*
+.dev.vars

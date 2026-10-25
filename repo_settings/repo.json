@@ -1,0 +1,15 @@
+{
+  "has_wiki": false,
+  "has_projects": false,
+  "allow_merge_commit": false,
+  "allow_squash_merge": true,
+  "allow_rebase_merge": false,
+  "allow_auto_merge": false,
+  "delete_branch_on_merge": true,
+  "allow_update_branch": true,
+  "web_commit_signoff_required": false,
+  "security_and_analysis": {
+    "secret_scanning": {"status": "enabled"},
+    "secret_scanning_push_protection": {"status": "enabled"}
+  }
+}

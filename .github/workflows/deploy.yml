@@ -1,0 +1,108 @@
+# 公開: main への push・定期実行（データの取り直し）・手動。
+# ★外のデータを処理する build ジョブには秘密を渡さない。秘密は deploy ジョブ（environment: production）だけ。
+# ★定期実行は public リポジトリで60日間活動が無いと GitHub が自動で止める。止まったことは
+#   tools/check_live.py を外から回して知る（docs/運用.md「黙って止まる経路」）。
+# ★uses: は40桁の commit SHA ＋「# vX.Y.Z」で書く（tools/check_repo.py と zizmor が見張る）。
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "13,43 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: 外のデータを三状態で取り込む（前回分は公開中のサイトから読む）
+        run: python3 -I tools/fetch.py --previous-from-live
+      - name: 公開用に生成する（未設定が残っていれば止まる）
+        run: python3 -I tools/build.py --out dist --production
+      - name: 公開してよいかを検査する
+        run: python3 -I tools/check_dist.py dist --production
+      - name: リポジトリの設定ファイルを検査する
+        run: python3 -I tools/check_repo.py --production
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 3
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: リポジトリの中の dist を消す（検査していない物を受け取った物に混ぜない）
+        run: rm -rf dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: 受け取った物を、公開の直前にもう一度検査する
+        run: python3 -I tools/check_dist.py dist --production
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: wrangler を入れる（lockfile どおり・install スクリプトは走らせない）
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Cloudflare へ公開する
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: "false"
+        run: npx --no-install wrangler deploy
+
+  verify:
+    name: verify
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: リポジトリの中の dist を消す（照合の相手は受け取った物だけ）
+        run: rm -rf dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+      - name: 公開中のサイトを外から確かめる（ヘッダ・帯・404・鮮度・全ファイルの一致）
+        run: python3 -I tools/check_live.py --expect-dist dist

@@ -1,0 +1,85 @@
+# PR と main への push で走る検査。秘密は1つも使わない。
+# ★uses: は40桁の commit SHA ＋「# vX.Y.Z」で書く（tools/check_repo.py と zizmor が見張る）。
+#   SHA は記憶から書かず、git ls-remote --tags https://github.com/<owner>/<repo> 'refs/tags/<tag>' 'refs/tags/<tag>^{}'
+#   で引く（注釈付きタグは ^{} の行が commit）。
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: 試験
+        run: python3 -I -m unittest discover -s tests -v
+      - name: 検算（関所を壊すと試験が赤になるか）
+        run: python3 -I tests/mutation_check.py
+      - name: リポジトリの設定ファイルの検査
+        run: python3 -I tools/check_repo.py
+      - name: 生成と検査（未設定が残っていても作る）
+        run: |
+          python3 -I tools/build.py --out dist
+          python3 -I tools/check_dist.py dist
+
+  wrangler-dry-run:
+    name: wrangler-dry-run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: JS の試験（Node の標準の試験だけ。依存なし）
+        run: node --test 'tests_js/*.test.mjs'
+      - name: 生成
+        run: python3 -I tools/build.py --out dist
+      - name: wrangler を入れる（lockfile どおり・install スクリプトは走らせない）
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: デプロイの空回し（秘密なし）
+        env:
+          WRANGLER_SEND_METRICS: "false"
+        run: npx --no-install wrangler deploy --dry-run
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        with:
+          version: "1.31.1"
+          advanced-security: false

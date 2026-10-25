@@ -1,0 +1,8 @@
+{
+  "name": "safe-site",
+  "private": true,
+  "description": "デプロイに使う wrangler だけを持つ（サイトの生成は Python の標準ライブラリ）",
+  "devDependencies": {
+    "wrangler": "4.151.0"
+  }
+}

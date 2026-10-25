@@ -1,0 +1,11 @@
+{
+  "site_name": "サイトの名前（未設定）",
+  "site_url": "https://example.invalid/",
+  "language": "ja",
+  "unofficial_notice": "このサイトは非公式です。運営者は、止まっているサービスの事業者とは関係がありません。",
+  "official_links": [
+    {"label": "公式のお知らせ（未設定）", "url": "https://example.invalid/official"}
+  ],
+  "contact_url": "https://example.invalid/contact",
+  "max_status_age_minutes": 180
+}

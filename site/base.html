@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="${lang}">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${meta_csp}">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>${title}</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/banner.css">
+<script src="/freshness.js" defer></script>
+</head>
+<body>
+<header role="note" data-unofficial-banner>
+<p><strong>非公式</strong>　${unofficial_notice}</p>
+<p>公式の情報: ${official_links}</p>
+<p>このページを作った時刻: <time datetime="${generated_at_iso}">${generated_at_text}</time></p>
+<p role="alert" data-stale-banner hidden></p>
+</header>
+<main>
+${content}
+</main>
+<footer>
+<p><a href="/about.html">このサイトについて</a>　<a href="/sources.html">出典と利用条件</a>　<a href="/status.html">データの取得状況</a>　<a href="${contact_url}" rel="noopener noreferrer">訂正のご連絡</a></p>
+</footer>
+</body>
+</html>

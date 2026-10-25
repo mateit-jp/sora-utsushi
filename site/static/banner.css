@@ -1,0 +1,21 @@
+/* 「非公式」の帯の見た目。中身は tools/check_dist.py の PINNED_FILES で固定している（変えるなら店主の承認で）。
+   ほかの CSS の変数に頼らない（ほかの CSS から帯の色を背景と同じにされないため）。 */
+[data-unofficial-banner] {
+  display: block;
+  visibility: visible;
+  opacity: 1;
+  position: static;
+  color: #4a2a00;
+  background: #fff1d6;
+  border-bottom: 2px solid #4a2a00;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+}
+[data-unofficial-banner] p { max-width: 60rem; margin: 0.25rem auto; }
+[data-unofficial-banner] a { color: inherit; }
+[data-stale-banner] { font-weight: bold; border: 2px solid currentColor; padding: 0.25rem 0.5rem; }
+/* 欄ごとの「更新が止まっています」（freshness.js が出す）。帯と同じく、ほかの CSS からは触れない */
+[data-section-stale] { font-weight: bold; border: 2px solid currentColor; padding: 0.25rem 0.5rem; }
+@media (prefers-color-scheme: dark) {
+  [data-unofficial-banner] { color: #ffe2b8; background: #3a2a12; border-bottom-color: #ffe2b8; }
+}

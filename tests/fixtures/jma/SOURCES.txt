@@ -1,0 +1,670 @@
+SOURCES.txt — 気象庁の見本データ（tests/fixtures/jma/）の出どころ
+このファイルは fetch_fixtures.py が作った。手で直さない（sha256 の照合に使う）。
+
+======== 方法 ========
+- 標準ライブラリだけ（urllib）。前の応答を読み終えてから 1.0 秒あけて、1本ずつ取った（同時接続なし）。
+- User-Agent: sora-utsushi-fixtures/1（contact に GitHub の Issue の URL を入れた。取得時の連絡先 URL は旧アカウント名のもの〔現在は mateit-jp に改名済み・同じアカウント〕。この行だけ 2026-10-25 に書き換え、ほかの行と見本の本体は取得時のまま）
+- 自分で付けたヘッダは User-Agent と Accept: */* だけ。Accept-Encoding は付けていない（ただし標準ライブラリの http.client が、非圧縮を求める Accept-Encoding: identity を自動で足す。本番の取り込み fetch.py の http_get も同じ）。
+- 転送（3xx）は辿らず、状態として記録した。自動の再試行はしない。403・429 を受けたら即停止する設計。
+- ソケットの待ちは30秒、1リクエスト総計は90秒まで。証明書の検証は切っていない。
+- 保存はバイトのまま（整形・改行の変換・文字コードの変換をしていない）。DOCTYPE・ENTITY を含む XML は保存しない。
+- 辿ったリンクは、電文は前置き https://www.data.jma.go.jp/developer/xml/data/ のものだけ、警報ページの JS は https://www.jma.go.jp/bosai/ 以下のものだけ。
+- 1本の上限: extra 系フィード（extra.xml・regular.xml） 5,000,000・extra_l.xml 20,000,000・JSON 2,000,000・HTML・PDF・JS 5,000,000・電文 1,000,000（バイト。超えたら保存せず「読めなかった: 大きすぎる」）。
+- 取得量の台帳: 1回の実行 60,000,000 バイト・1日 200,000,000 バイトまで。
+
+三状態の語:
+  取れた       … 取得できて、読めることも確かめた。
+  無かった     … サーバが HTTP 404/410 で「無い」と答えた。
+  読めなかった … 応答が無い・時間切れ・5xx・403/429・転送・大きすぎる・形が違う・取得の範囲に無かった、など。
+                 ★「読めなかった」を「無い」と読まない。理由を必ず添える。
+
+======== 出荷物（tests/fixtures/jma/ に入れるもの） ========
+ファイル: extra.xml
+  URL: https://www.data.jma.go.jp/developer/xml/feed/extra.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:38Z
+  HTTP: 200
+  バイト数: 312433
+  sha256: c25aa12765a01edcf82ff5af2d1931cc2e3212c4944fac2c8438fd17aa2e93de
+  Content-Type: text/xml
+  Last-Modified: Sat, 24 Oct 2026 04:41:53 GMT
+  所要: 0.15 秒
+  注記: snap1 のコピー（取れた3回のうちバイト数が最大。他は参照用に残した）
+
+ファイル: extra_l.xml
+  URL: https://www.data.jma.go.jp/developer/xml/feed/extra_l.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:39Z
+  HTTP: 200
+  バイト数: 3752853
+  sha256: 576d82fc4bff617152263d934e78f11d8fa5ac7ec26c4c3fbe809688b1b9d636
+  Content-Type: text/xml
+  Last-Modified: Sat, 24 Oct 2026 04:41:53 GMT
+  所要: 0.24 秒
+
+ファイル: area.json
+  URL: https://www.jma.go.jp/bosai/common/const/area.json
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:40Z
+  HTTP: 200
+  バイト数: 262108
+  sha256: b2716ef1f338f66a7080c2498f0768e3941eebbd6880af70917f67b16ec09992
+  Content-Type: application/json
+  Last-Modified: Tue, 20 Oct 2026 02:07:07 GMT
+  所要: 0.13 秒
+
+ファイル: fc-130000.json
+  URL: https://www.jma.go.jp/bosai/forecast/data/forecast/130000.json
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:41Z
+  HTTP: 200
+  バイト数: 6008
+  sha256: ceb0d5f2bfafa5baf0692ec8cf12280b13b79dd7a90557c4ed44eb1e942ff3a5
+  Content-Type: application/json
+  Last-Modified: Sat, 24 Oct 2026 01:42:23 GMT
+  所要: 0.06 秒
+
+ファイル: fc-270000.json
+  URL: https://www.jma.go.jp/bosai/forecast/data/forecast/270000.json
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:42Z
+  HTTP: 200
+  バイト数: 2519
+  sha256: 86f3b14e8abfae88548b9bceee2f786f46702781f592af2062091025b5fc55e1
+  Content-Type: application/json
+  Last-Modified: Sat, 24 Oct 2026 01:43:17 GMT
+  所要: 0.06 秒
+
+ファイル: ov-130000.json
+  URL: https://www.jma.go.jp/bosai/forecast/data/overview_forecast/130000.json
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:43Z
+  HTTP: 200
+  バイト数: 817
+  sha256: 18671aba0eb0caaf81c69877bc7763277279dbf1467497c828e10c5fe3f5b84a
+  Content-Type: application/json
+  Last-Modified: Sat, 24 Oct 2026 01:37:44 GMT
+  所要: 0.10 秒
+
+ファイル: ov-270000.json
+  URL: https://www.jma.go.jp/bosai/forecast/data/overview_forecast/270000.json
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:44Z
+  HTTP: 200
+  バイト数: 1016
+  sha256: ec7fab84024f9023fdb1d33a9d72498e59a41e049f21d605e9c455945669dee2
+  Content-Type: application/json
+  Last-Modified: Sat, 24 Oct 2026 01:36:48 GMT
+  所要: 0.08 秒
+
+ファイル: vpww-VPWW61-01.xml
+  URL: https://www.data.jma.go.jp/developer/xml/data/20261023191528_0_VPWW61_130000.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:53Z
+  HTTP: 200
+  バイト数: 18436
+  sha256: d2255339875ad3c345a5adb4172e581583271594599de9310db823fd72179738
+  Content-Type: text/xml
+  Last-Modified: Fri, 23 Oct 2026 19:16:13 GMT
+  所要: 0.06 秒
+  注記: 官署 東京都（130000）・種類 VPWW61・entry の updated 2026-10-23T19:15:27Z
+
+ファイル: vpww-VPWW61-02.xml
+  URL: https://www.data.jma.go.jp/developer/xml/data/20261024010526_0_VPWW61_270000.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:54Z
+  HTTP: 200
+  バイト数: 26493
+  sha256: ccd717442f8805b28f65209a184760d1bed9c5a24b38f358d5ab509127c71a0b
+  Content-Type: text/xml
+  Last-Modified: Sat, 24 Oct 2026 01:06:27 GMT
+  所要: 0.06 秒
+  注記: 官署 大阪府（270000）・種類 VPWW61・entry の updated 2026-10-24T01:05:26Z
+
+ファイル: vpww-VPWW59-01.xml
+  URL: https://www.data.jma.go.jp/developer/xml/data/20261023191528_0_VPWW59_130000.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:56Z
+  HTTP: 200
+  バイト数: 22145
+  sha256: cb0538eea23b5662fbd8bd3d726a96fc8722624706f67d6f7ebee43adb7ec60c
+  Content-Type: text/xml
+  Last-Modified: Fri, 23 Oct 2026 19:16:13 GMT
+  所要: 0.06 秒
+  注記: 官署 東京都（130000）・種類 VPWW59・entry の updated 2026-10-23T19:15:27Z
+
+ファイル: vpww-VPWW56-01.xml
+  URL: https://www.data.jma.go.jp/developer/xml/data/20261024010405_0_VPWW56_270000.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:57Z
+  HTTP: 200
+  バイト数: 14155
+  sha256: 1f30807ae1572bff2634872b9b6dd3a82d5448038a2323081dcdeac5af471358
+  Content-Type: text/xml
+  Last-Modified: Sat, 24 Oct 2026 01:04:40 GMT
+  所要: 0.06 秒
+  注記: 官署 大阪府（270000）・種類 VPWW56・entry の updated 2026-10-24T01:04:04Z
+
+ファイル: vpww-VPWW58-01.xml
+  URL: https://www.data.jma.go.jp/developer/xml/data/20261022230149_0_VPWW58_130000.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:58Z
+  HTTP: 200
+  バイト数: 16441
+  sha256: d66b1f396693bd77daee00012ca994937390942eda464f17a7902ad0d64c715c
+  Content-Type: text/xml
+  Last-Modified: Thu, 22 Oct 2026 23:02:28 GMT
+  所要: 0.06 秒
+  注記: 官署 東京都（130000）・種類 VPWW58・entry の updated 2026-10-22T23:01:48Z
+
+ファイル: vpww-VPWW55-01.xml
+  URL: https://www.data.jma.go.jp/developer/xml/data/20261024010405_0_VPWW55_270000.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:59Z
+  HTTP: 200
+  バイト数: 15765
+  sha256: 8e63163ceea4d8bfa8e74625653ee6d9837fbe5854b48e33a96ab5b1d98e1d68
+  Content-Type: text/xml
+  Last-Modified: Sat, 24 Oct 2026 01:04:40 GMT
+  所要: 0.06 秒
+  注記: 官署 大阪府（270000）・種類 VPWW55・entry の updated 2026-10-24T01:04:04Z
+
+ファイル: vpww-VPWW59-02.xml
+  URL: https://www.data.jma.go.jp/developer/xml/data/20261021114643_0_VPWW59_270000.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:49:00Z
+  HTTP: 200
+  バイト数: 14631
+  sha256: e554ee2570f62a2233376a6fe080c9432d43a6671a213bb9ba1bec9899a9e7bd
+  Content-Type: text/xml
+  Last-Modified: Wed, 21 Oct 2026 11:47:22 GMT
+  所要: 0.06 秒
+  注記: 官署 大阪府（270000）・種類 VPWW59・entry の updated 2026-10-21T11:46:43Z
+
+ファイル: vpww-VPWW58-02.xml
+  URL: https://www.data.jma.go.jp/developer/xml/data/20261021114643_0_VPWW58_270000.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:49:01Z
+  HTTP: 200
+  バイト数: 26802
+  sha256: c54588c212d2e4593c82403cc98feb8b890e98fd4e87c3dd977198b71b7f25ef
+  Content-Type: text/xml
+  Last-Modified: Wed, 21 Oct 2026 11:47:22 GMT
+  所要: 0.06 秒
+  注記: 官署 大阪府（270000）・種類 VPWW58・entry の updated 2026-10-21T11:46:43Z
+
+ファイル: vpww-VPWW59-03.xml
+  URL: https://www.data.jma.go.jp/developer/xml/data/20261023145648_0_VPWW59_130000.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:49:02Z
+  HTTP: 200
+  バイト数: 21863
+  sha256: 5b9f33485a070c3dd93ee839d746fc36ee24bfab9814957c2b64a2fb9406b8a7
+  Content-Type: text/xml
+  Last-Modified: Fri, 23 Oct 2026 14:57:37 GMT
+  所要: 0.06 秒
+  注記: 官署 東京都（130000）・種類 VPWW59・entry の updated 2026-10-23T14:56:47Z
+
+ファイル: vpww-VPWW56-02.xml
+  URL: https://www.data.jma.go.jp/developer/xml/data/20261023200009_0_VPWW56_270000.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:49:03Z
+  HTTP: 200
+  バイト数: 15618
+  sha256: 1dfcb45e6d6b52276fe40dd09b7306d4261bea8d8210112e2f1ba0b5dd9b445d
+  Content-Type: text/xml
+  Last-Modified: Fri, 23 Oct 2026 20:00:56 GMT
+  所要: 0.06 秒
+  注記: 官署 大阪府（270000）・種類 VPWW56・entry の updated 2026-10-23T20:00:06Z
+
+ファイル: vpws50-01.xml
+  URL: https://www.data.jma.go.jp/developer/xml/data/20261024044101_0_VPWS50_010000.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:49:04Z
+  HTTP: 200
+  読めなかった: 大きすぎる（Content-Length 1,328,234 が上限 1,000,000 を超える）
+  注記: VPWS50 の所在と形を見るための1本（計画書 4.3 の名前の一覧にはない）
+
+ファイル: probe.json
+  URL: （area.json の offices の全コード × fc・ov の HTTP 状態。個別の取得は取得ログにある）
+  取得時刻(UTC・probe の開始): 2026-10-24T04:49:04Z
+  バイト数: 3309
+  sha256: 4785e41561ba3c11995d2293dcf332bc4fcd592a74e85ca7ba2331af91c771fd
+
+
+======== 参照用（出荷しない。_run/evidence/ に保存） ========
+ファイル: _run/evidence/extra_snap1.xml
+  URL: https://www.data.jma.go.jp/developer/xml/feed/extra.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:38Z
+  HTTP: 200
+  バイト数: 312433
+  sha256: c25aa12765a01edcf82ff5af2d1931cc2e3212c4944fac2c8438fd17aa2e93de
+  Content-Type: text/xml
+  Last-Modified: Sat, 24 Oct 2026 04:41:53 GMT
+  所要: 0.15 秒
+
+ファイル: _run/evidence/extra_snap2.xml
+  URL: https://www.data.jma.go.jp/developer/xml/feed/extra.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T05:49:38Z
+  HTTP: 200
+  バイト数: 276620
+  sha256: 9642932379d68622970d77af95b35b5655ad44284ad9cbf7b004d980a335e2ad
+  Content-Type: text/xml
+  Last-Modified: Sat, 24 Oct 2026 05:41:18 GMT
+  所要: 0.14 秒
+  注記: 前の extra 取得からの間隔 3660.0 秒（有効）
+
+ファイル: _run/evidence/extra_snap3.xml
+  URL: https://www.data.jma.go.jp/developer/xml/feed/extra.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T06:50:38Z
+  HTTP: 200
+  バイト数: 213573
+  sha256: eb52cd50b9d13dbeed53d065caef8e575a723a0a8060a9a78027f35aa8792e33
+  Content-Type: text/xml
+  Last-Modified: Sat, 24 Oct 2026 06:50:08 GMT
+  所要: 0.15 秒
+  注記: 前の extra 取得からの間隔 3660.0 秒（有効）
+
+ファイル: _run/evidence/coment.html
+  URL: https://www.jma.go.jp/jma/kishou/info/coment.html
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:45Z
+  HTTP: 200
+  バイト数: 23377
+  sha256: ff2b45042e6207053d8f6aa617656aa6a144e462db138f0b8138de6eefbeff48
+  Content-Type: text/html; charset=UTF-8
+  Last-Modified: Thu, 06 Aug 2026 02:24:21 GMT
+  所要: 0.08 秒
+
+ファイル: _run/evidence/ryuui.pdf
+  URL: https://www.data.jma.go.jp/developer/ryuui.pdf
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:47Z
+  HTTP: 200
+  バイト数: 113331
+  sha256: 6c88ae1f092118c2d4be5d519420a49d2b4493351cc3b1b3a2947861e316de17
+  Content-Type: application/pdf
+  Last-Modified: Mon, 10 Feb 2025 05:11:02 GMT
+  所要: 0.14 秒
+
+ファイル: _run/evidence/xmlpull.html
+  URL: https://xml.kishou.go.jp/xmlpull.html
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:48Z
+  HTTP: 200
+  バイト数: 10819
+  sha256: 70e391cb0563a5f77a0361bd9537ac69ad40f5bcc1517900ef6c5705f682c5d3
+  Content-Type: text/html; charset=UTF-8
+  Last-Modified: Thu, 11 Sep 2025 01:04:43 GMT
+  所要: 0.25 秒
+
+ファイル: _run/evidence/developer_index.html
+  URL: https://www.data.jma.go.jp/developer/index.html
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:49Z
+  HTTP: 200
+  バイト数: 21561
+  sha256: f75261a65019d7b0958e0ffc3d78718e5d651d5db731c4968c7411684592a29c
+  Content-Type: text/html
+  Last-Modified: Thu, 26 Mar 2026 01:33:25 GMT
+  所要: 0.12 秒
+
+ファイル: _run/evidence/regular.xml
+  URL: https://www.data.jma.go.jp/developer/xml/feed/regular.xml
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:50Z
+  HTTP: 200
+  バイト数: 382808
+  sha256: 87ef23e5d88ad550f899d1d07aa9bb374511174bf29d2b2dfac43b4137ba7156
+  Content-Type: text/xml
+  Last-Modified: Sat, 24 Oct 2026 04:42:15 GMT
+  所要: 0.12 秒
+
+ファイル: _run/evidence/warning_page.html
+  URL: https://www.jma.go.jp/bosai/warning/
+  取得時刻(UTC・要求を出した時刻): 2026-10-24T04:48:51Z
+  HTTP: 200
+  バイト数: 276704
+  sha256: 0f97567661b63b6a2be62545c8bc6aae3ef052dfbbecb0de4993019955be0c67
+  Content-Type: text/html
+  Last-Modified: Thu, 22 Oct 2026 06:41:06 GMT
+  所要: 0.11 秒
+
+bosai/forecast/ の状態コードだけ（本体は読んでいない）:
+  URL: https://www.jma.go.jp/bosai/forecast/
+  HTTP: 200   取得時刻(UTC): 2026-10-24T04:48:52Z
+
+
+======== フィードごとの数（取得ごと） ========
+[snap1 extra.xml 1回目]
+  取得時刻(UTC): 2026-10-24T04:48:38Z   バイト数: 312,433
+  フィードの updated（原文）: '2026-10-24T13:41:33+09:00'
+  フィード updated と取得時刻の差（取得 − updated）: 425 秒
+  entry 件数: 510
+  entry の updated: 最古 2026-10-23T18:43:05Z / 最新 2026-10-24T04:41:10Z / 差 9.97 時間
+  VPWW55〜61: 55=27 56=27 57=1 58=14 59=14 60=0 61=20  合計 103
+  VPWW53（旧）: 148  VPWW54（旧）: 148  VPWS50: 0
+  電文のリンクの前置き（最後の / まで）: https://www.data.jma.go.jp/developer/xml/data/ ×510
+  観測した前置き https://www.data.jma.go.jp/developer/xml/data/ の外のリンク: 0 件（うち http:// 0 件）
+  link の無い entry: 0   updated を読めない entry: 0   電文の種類を読めない entry: 0
+  電文の種類（件数の多い順）: VPWW54=148 VPWW53=148 VPFJ50=35 VPFJ51=34 VPWW55=27 VPWW56=27 VPWW61=20 VPWW58=14
+
+[snap2 extra.xml 2回目]
+  取得時刻(UTC): 2026-10-24T05:49:38Z   バイト数: 276,620
+  前の extra 取得からの間隔（開始から開始）: 3660 秒 → 有効
+  フィードの updated（原文）: '2026-10-24T14:40:54+09:00'
+  フィード updated と取得時刻の差（取得 − updated）: 524 秒
+  entry 件数: 448
+  entry の updated: 最古 2026-10-23T19:47:45Z / 最新 2026-10-24T05:40:41Z / 差 9.88 時間
+  VPWW55〜61: 55=21 56=24 57=0 58=9 59=9 60=0 61=17  合計 80
+  VPWW53（旧）: 130  VPWW54（旧）: 130  VPWS50: 0
+  電文のリンクの前置き（最後の / まで）: https://www.data.jma.go.jp/developer/xml/data/ ×448
+  観測した前置き https://www.data.jma.go.jp/developer/xml/data/ の外のリンク: 0 件（うち http:// 0 件）
+  link の無い entry: 0   updated を読めない entry: 0   電文の種類を読めない entry: 0
+  電文の種類（件数の多い順）: VPWW54=130 VPWW53=130 VPFJ50=36 VPFJ51=35 VPWW56=24 VPWW55=21 VPWW61=17 VPTW60=10
+
+[snap3 extra.xml 3回目]
+  取得時刻(UTC): 2026-10-24T06:50:38Z   バイト数: 213,573
+  前の extra 取得からの間隔（開始から開始）: 3660 秒 → 有効
+  フィードの updated（原文）: '2026-10-24T15:49:54+09:00'
+  フィード updated と取得時刻の差（取得 − updated）: 44 秒
+  entry 件数: 350
+  entry の updated: 最古 2026-10-23T20:52:47Z / 最新 2026-10-24T06:49:02Z / 差 9.94 時間
+  VPWW55〜61: 55=16 56=21 57=0 58=13 59=11 60=0 61=22  合計 83
+  VPWW53（旧）: 99  VPWW54（旧）: 99  VPWS50: 0
+  電文のリンクの前置き（最後の / まで）: https://www.data.jma.go.jp/developer/xml/data/ ×350
+  観測した前置き https://www.data.jma.go.jp/developer/xml/data/ の外のリンク: 0 件（うち http:// 0 件）
+  link の無い entry: 0   updated を読めない entry: 0   電文の種類を読めない entry: 0
+  電文の種類（件数の多い順）: VPWW54=99 VPWW53=99 VPWW61=22 VPFJ50=22 VPWW56=21 VPFJ51=21 VPWW55=16 VPWW58=13
+
+[extra_l.xml]
+  取得時刻(UTC): 2026-10-24T04:48:39Z   バイト数: 3,752,853
+  フィードの updated（原文）: '2026-10-24T13:41:33+09:00'
+  フィード updated と取得時刻の差（取得 − updated）: 426 秒
+  entry 件数: 6246
+  entry の updated: 最古 2026-10-17T04:59:21Z / 最新 2026-10-24T04:41:10Z / 差 167.70 時間
+  VPWW55〜61: 55=163 56=148 57=4 58=346 59=260 60=0 61=385  合計 1306
+  VPWW53（旧）: 1951  VPWW54（旧）: 1951  VPWS50: 0
+  電文のリンクの前置き（最後の / まで）: https://www.data.jma.go.jp/developer/xml/data/ ×6246
+  観測した前置き https://www.data.jma.go.jp/developer/xml/data/ の外のリンク: 0 件（うち http:// 0 件）
+  link の無い entry: 0   updated を読めない entry: 0   電文の種類を読めない entry: 0
+  電文の種類（件数の多い順）: VPWW54=1951 VPWW53=1951 VPWW61=385 VPWW58=346 VPFJ50=316 VPFJ51=315 VPWW59=260 VPWW55=163
+
+
+======== 範囲の判定（フィードが件数で切れるのか、期間で切れるのか） ========
+extra.xml（有効な回 3 回: snap1, snap2, snap3）:
+  判定: 期間で切っている疑い（約 9.9 時間で一定、件数は変わった）（件数 350〜510・期間 9.88〜9.97 時間。3回では確定しない）
+extra_l.xml: 1回だけなので判定できない（6246 件・約 167.70 時間）
+並べて見る 2026-10-23 の実測（高頻度フィード）: 270 件 / 350 件、entry の updated の最古 22:03Z / 22:24Z（この順で依頼書に記載。どの取得かの対応は未確認）
+取得時の気象（警報・注意報が出ていたか。取得後に店主が気象庁のページで見て記入）: ＿＿＿＿＿＿＿＿＿＿＿＿
+
+======== 官署の見分け（電文を開く前に entry のメタデータで） ========
+対象の entry: VPWW55〜61 でリンクが https://www.data.jma.go.jp/developer/xml/data/ で始まるもの 1306 件（取り済みのフィード: snap1 510件, extra_l 6246件）
+  VPWW55〜61 のファイル名末尾のコードの分布（上位10）: 150000×72 050000×54 170000×48 060000×43 420000×40 300000×39 017000×39 350000×37 030000×37 474000×35
+  VPWW55〜61 の作成者（author の name）の分布（上位10）: 新潟地方気象台×72 秋田地方気象台×54 金沢地方気象台×48 山形地方気象台×43 長崎地方気象台×40 和歌山地方気象台×39 函館地方気象台×39 下関地方気象台×37 盛岡地方気象台×37 石垣島地方気象台×35
+  東京都（130000）: ファイル名末尾のコードが 130000 → 31 件
+  大阪府（270000）: ファイル名末尾のコードが 270000 → 15 件
+  項目 file_code（リンク先の名（リンクのファイル名の末尾のコード））: 東京都=['130000'] ／ 大阪府=['270000']  → 使える
+  項目 author（作成者（author の name））: 東京都=['気象庁'] ／ 大阪府=['大阪管区気象台']  → 使える
+  項目 title（題（title））: 東京都=['気象警報・注意報（Ｒ０６）（波浪）', '気象警報・注意報（Ｒ０６）（その他注意報）', '気象警報・注意報（Ｒ０６）（暴風）'] ／ 大阪府=['気象警報・注意報（Ｒ０６）（その他注意報）', '気象警報・注意報（Ｒ０６）（土砂）', '気象警報・注意報（Ｒ０６）（大雨）', '気象警報・注意報（Ｒ０６）（波浪）', '気象警報・注意報（Ｒ０６）（暴風）']  → 使えない（値が1つに決まらない 他の entry にも出る 1256 件）
+  項目 bracket（content 冒頭の【…】）: 東京都=['東京都波浪警報・注意報', '東京都雷注意報', '東京都暴風（雪）警報・注意報'] ／ 大阪府=['大阪府雷注意報', '大阪府土砂災害警報・注意報', '大阪府大雨警報・注意報', '大阪府波浪警報・注意報', '大阪府暴風（雪）警報・注意報', '大阪府乾燥注意報']  → 使えない（値が1つに決まらない ）
+★使った項目: file_code（リンク先の名（リンクのファイル名の末尾のコード））。PREPARING_OFFICES と warn_offices.json の key になる
+   東京都（130000）の値 = '130000'
+   大阪府（270000）の値 = '270000'
+  東京都（130000）の電文: あり — 31 件の entry
+  大阪府（270000）の電文: あり — 15 件の entry
+  全フィード（snap1〜3 と extra_l のうち読めたもの）での再点検: 対象 1321 件・使える項目 = file_code（電文を選んだ時点と同じ）
+
+======== 電文（VPWW55〜61・東京都と大阪府を受け持つ官署） ========
+選んだ本数: 10（上限 10）。選び方: 官署ごとに種類ごとの最新を、官署を交互に取る。足りなければ新しい順に足す。
+- vpww-VPWW61-01.xml: 官署 東京都（130000）・種類 VPWW61・entry の updated 2026-10-23T19:15:27Z
+    選んだ理由: 官署ごと・種類ごとの最新（その官署でいちばん新しい）
+    PublishingOffice: ['気象庁']
+    Title: Control/Title=['気象警報・注意報（Ｒ０６）（その他注意報）'] Head/Title=['東京都雷注意報']
+    Kind/Name: ['雷注意報']
+    Area/Name: 89 個 先頭 ['東京都', '伊豆諸島北部', '伊豆諸島南部', '大島', '新島', '三宅島']   Area/Code 先頭: ['130000', '130020', '130030', '130021']
+    Headline/Text: 伊豆諸島北部、伊豆諸島南部では、急な強い雨や落雷に注意してください。
+    本文の語の数: 130000=2 東京都=3 270000=0 大阪府=0
+    答え合わせ（entry の見分け ↔ 本文）: 一致
+- vpww-VPWW61-02.xml: 官署 大阪府（270000）・種類 VPWW61・entry の updated 2026-10-24T01:05:26Z
+    選んだ理由: 官署ごと・種類ごとの最新（その官署でいちばん新しい）
+    PublishingOffice: ['大阪管区気象台']
+    Title: Control/Title=['気象警報・注意報（Ｒ０６）（その他注意報）'] Head/Title=['大阪府雷注意報']
+    Kind/Name: ['解除', '雷注意報']
+    Area/Name: 100 個 先頭 ['大阪府', '大阪府', '大阪市', '北大阪', '東部大阪', '南河内']   Area/Code 先頭: ['270000', '270000', '270001', '270002']
+    Headline/Text: 注意報を解除します。
+    本文の語の数: 130000=0 東京都=0 270000=4 大阪府=5
+    答え合わせ（entry の見分け ↔ 本文）: 一致
+- vpww-VPWW59-01.xml: 官署 東京都（130000）・種類 VPWW59・entry の updated 2026-10-23T19:15:27Z
+    選んだ理由: 官署ごと・種類ごとの最新（種類違い）
+    PublishingOffice: ['気象庁']
+    Title: Control/Title=['気象警報・注意報（Ｒ０６）（波浪）'] Head/Title=['東京都波浪警報・注意報']
+    Kind/Name: ['波浪注意報']
+    Area/Name: 92 個 先頭 ['東京都', '伊豆諸島北部', '伊豆諸島南部', '大島', '新島', '八丈島']   Area/Code 先頭: ['130000', '130020', '130030', '130021']
+    Headline/Text: 伊豆諸島北部、伊豆諸島南部では、高波に注意してください。
+    本文の語の数: 130000=2 東京都=3 270000=0 大阪府=0
+    答え合わせ（entry の見分け ↔ 本文）: 一致
+- vpww-VPWW56-01.xml: 官署 大阪府（270000）・種類 VPWW56・entry の updated 2026-10-24T01:04:04Z
+    選んだ理由: 官署ごと・種類ごとの最新（種類違い）
+    PublishingOffice: ['大阪管区気象台']
+    Title: Control/Title=['気象警報・注意報（Ｒ０６）（土砂）'] Head/Title=['大阪府土砂災害警報・注意報']
+    Kind/Name: ['レベル２土砂災害注意報', '解除']
+    Area/Name: 63 個 先頭 ['大阪府', '大阪府', '泉州', '堺市', '岸和田市', '貝塚市']   Area/Code 先頭: ['270000', '270000', '270005', '2714000']
+    Headline/Text: 注意報を解除します。
+    本文の語の数: 130000=0 東京都=0 270000=4 大阪府=6
+    答え合わせ（entry の見分け ↔ 本文）: 一致
+- vpww-VPWW58-01.xml: 官署 東京都（130000）・種類 VPWW58・entry の updated 2026-10-22T23:01:48Z
+    選んだ理由: 官署ごと・種類ごとの最新（種類違い）
+    PublishingOffice: ['気象庁']
+    Title: Control/Title=['気象警報・注意報（Ｒ０６）（暴風）'] Head/Title=['東京都暴風（雪）警報・注意報']
+    Kind/Name: ['強風注意報', '解除']
+    Area/Name: 87 個 先頭 ['東京都', '伊豆諸島北部', '伊豆諸島南部', '新島', '三宅島', '利島村']   Area/Code 先頭: ['130000', '130020', '130030', '130022']
+    Headline/Text: 注意報を解除します。
+    本文の語の数: 130000=2 東京都=3 270000=0 大阪府=0
+    答え合わせ（entry の見分け ↔ 本文）: 一致
+- vpww-VPWW55-01.xml: 官署 大阪府（270000）・種類 VPWW55・entry の updated 2026-10-24T01:04:04Z
+    選んだ理由: 官署ごと・種類ごとの最新（種類違い）
+    PublishingOffice: ['大阪管区気象台']
+    Title: Control/Title=['気象警報・注意報（Ｒ０６）（大雨）'] Head/Title=['大阪府大雨警報・注意報']
+    Kind/Name: ['レベル２大雨注意報', '解除']
+    Area/Name: 68 個 先頭 ['大阪府', '大阪府', '大阪市', '泉州', '大阪市', '堺市']   Area/Code 先頭: ['270000', '270000', '270001', '270005']
+    Headline/Text: 注意報を解除します。
+    本文の語の数: 130000=0 東京都=0 270000=4 大阪府=5
+    答え合わせ（entry の見分け ↔ 本文）: 一致
+- vpww-VPWW59-02.xml: 官署 大阪府（270000）・種類 VPWW59・entry の updated 2026-10-21T11:46:43Z
+    選んだ理由: 官署ごと・種類ごとの最新（種類違い）
+    PublishingOffice: ['大阪管区気象台']
+    Title: Control/Title=['気象警報・注意報（Ｒ０６）（波浪）'] Head/Title=['大阪府波浪警報・注意報']
+    Kind/Name: ['波浪注意報', '解除']
+    Area/Name: 66 個 先頭 ['大阪府', '大阪府', '大阪市', '泉州', '大阪市', '堺市']   Area/Code 先頭: ['270000', '270000', '270001', '270005']
+    Headline/Text: 注意報を解除します。
+    本文の語の数: 130000=0 東京都=0 270000=4 大阪府=5
+    答え合わせ（entry の見分け ↔ 本文）: 一致
+- vpww-VPWW58-02.xml: 官署 大阪府（270000）・種類 VPWW58・entry の updated 2026-10-21T11:46:43Z
+    選んだ理由: 官署ごと・種類ごとの最新（種類違い）
+    PublishingOffice: ['大阪管区気象台']
+    Title: Control/Title=['気象警報・注意報（Ｒ０６）（暴風）'] Head/Title=['大阪府暴風（雪）警報・注意報']
+    Kind/Name: ['強風注意報', '解除']
+    Area/Name: 100 個 先頭 ['大阪府', '大阪府', '大阪市', '北大阪', '東部大阪', '南河内']   Area/Code 先頭: ['270000', '270000', '270001', '270002']
+    Headline/Text: 注意報を解除します。
+    本文の語の数: 130000=0 東京都=0 270000=4 大阪府=5
+    答え合わせ（entry の見分け ↔ 本文）: 一致
+- vpww-VPWW59-03.xml: 官署 東京都（130000）・種類 VPWW59・entry の updated 2026-10-23T14:56:47Z
+    選んだ理由: 足し（同じ種類の古い電文を新しい順）
+    PublishingOffice: ['気象庁']
+    Title: Control/Title=['気象警報・注意報（Ｒ０６）（波浪）'] Head/Title=['東京都波浪警報・注意報']
+    Kind/Name: ['波浪注意報', '解除']
+    Area/Name: 92 個 先頭 ['東京都', '伊豆諸島北部', '伊豆諸島南部', '大島', '新島', '八丈島']   Area/Code 先頭: ['130000', '130020', '130030', '130021']
+    Headline/Text: 伊豆諸島北部、伊豆諸島南部では、高波に注意してください。
+    本文の語の数: 130000=2 東京都=3 270000=0 大阪府=0
+    答え合わせ（entry の見分け ↔ 本文）: 一致
+- vpww-VPWW56-02.xml: 官署 大阪府（270000）・種類 VPWW56・entry の updated 2026-10-23T20:00:06Z
+    選んだ理由: 足し（同じ種類の古い電文を新しい順）
+    PublishingOffice: ['大阪管区気象台']
+    Title: Control/Title=['気象警報・注意報（Ｒ０６）（土砂）'] Head/Title=['大阪府土砂災害警報・注意報']
+    Kind/Name: ['レベル２土砂災害注意報']
+    Area/Name: 63 個 先頭 ['大阪府', '大阪府', '泉州', '堺市', '岸和田市', '貝塚市']   Area/Code 先頭: ['270000', '270000', '270005', '2714000']
+    Headline/Text: 大阪府では、土砂災害に注意してください。
+    本文の語の数: 130000=0 東京都=0 270000=4 大阪府=7
+    答え合わせ（entry の見分け ↔ 本文）: 一致
+答え合わせの集計: 一致=10
+
+要素のパス一覧（和集合 60 個。右の数は、そのパスを持つ電文の数 / 読めた電文 10 本）:
+  Report   10/10
+  Report/Body   10/10
+  Report/Body/OfficeInfo   2/10
+  Report/Body/OfficeInfo/Office   2/10
+  Report/Body/OfficeInfo/Office/Name   2/10
+  Report/Body/Warning   10/10
+  Report/Body/Warning/Item   10/10
+  Report/Body/Warning/Item/Area   10/10
+  Report/Body/Warning/Item/Area/Code   10/10
+  Report/Body/Warning/Item/Area/Name   10/10
+  Report/Body/Warning/Item/ChangeStatus   10/10
+  Report/Body/Warning/Item/EditingMark   10/10
+  Report/Body/Warning/Item/FullStatus   10/10
+  Report/Body/Warning/Item/Kind   10/10
+  Report/Body/Warning/Item/Kind/Addition   3/10
+  Report/Body/Warning/Item/Kind/Addition/Note   3/10
+  Report/Body/Warning/Item/Kind/Code   10/10
+  Report/Body/Warning/Item/Kind/LastKind   8/10
+  Report/Body/Warning/Item/Kind/LastKind/Code   8/10
+  Report/Body/Warning/Item/Kind/LastKind/Name   8/10
+  Report/Body/Warning/Item/Kind/Name   10/10
+  Report/Body/Warning/Item/Kind/Property   4/10
+  Report/Body/Warning/Item/Kind/Property/SignificancyPart   4/10
+  Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base   4/10
+  Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition   3/10
+  Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition/Note   3/10
+  Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy   4/10
+  Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Code   4/10
+  Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Name   4/10
+  Report/Body/Warning/Item/Kind/Property/Type   4/10
+  Report/Body/Warning/Item/Kind/Property/WaveHeightPart   2/10
+  Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base   2/10
+  Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base/WaveHeight   2/10
+  Report/Body/Warning/Item/Kind/Status   10/10
+  Report/Control   10/10
+  Report/Control/DateTime   10/10
+  Report/Control/EditorialOffice   10/10
+  Report/Control/PublishingOffice   10/10
+  Report/Control/Status   10/10
+  Report/Control/Title   10/10
+  Report/Head   10/10
+  Report/Head/EventID   10/10
+  Report/Head/Headline   10/10
+  Report/Head/Headline/Information   10/10
+  Report/Head/Headline/Information/Item   10/10
+  Report/Head/Headline/Information/Item/Areas   10/10
+  Report/Head/Headline/Information/Item/Areas/Area   10/10
+  Report/Head/Headline/Information/Item/Areas/Area/Code   10/10
+  Report/Head/Headline/Information/Item/Areas/Area/Name   10/10
+  Report/Head/Headline/Information/Item/Kind   10/10
+  Report/Head/Headline/Information/Item/Kind/Code   10/10
+  Report/Head/Headline/Information/Item/Kind/Name   10/10
+  Report/Head/Headline/Text   10/10
+  Report/Head/InfoKind   10/10
+  Report/Head/InfoKindVersion   10/10
+  Report/Head/InfoType   10/10
+  Report/Head/ReportDateTime   10/10
+  Report/Head/Serial   10/10
+  Report/Head/TargetDateTime   10/10
+  Report/Head/Title   10/10
+  vpww-VPWW61-01.xml に無いパス: Report/Body/OfficeInfo , Report/Body/OfficeInfo/Office , Report/Body/OfficeInfo/Office/Name , Report/Body/Warning/Item/Kind/LastKind , Report/Body/Warning/Item/Kind/LastKind/Code , Report/Body/Warning/Item/Kind/LastKind/Name , Report/Body/Warning/Item/Kind/Property/WaveHeightPart , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base/WaveHeight
+  vpww-VPWW61-02.xml に無いパス: Report/Body/OfficeInfo , Report/Body/OfficeInfo/Office , Report/Body/OfficeInfo/Office/Name , Report/Body/Warning/Item/Kind/Addition , Report/Body/Warning/Item/Kind/Addition/Note , Report/Body/Warning/Item/Kind/Property , Report/Body/Warning/Item/Kind/Property/SignificancyPart , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition/Note , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Code , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Name , Report/Body/Warning/Item/Kind/Property/Type , Report/Body/Warning/Item/Kind/Property/WaveHeightPart , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base/WaveHeight
+  vpww-VPWW59-01.xml に無いパス: Report/Body/OfficeInfo , Report/Body/OfficeInfo/Office , Report/Body/OfficeInfo/Office/Name
+  vpww-VPWW56-01.xml に無いパス: Report/Body/Warning/Item/Kind/Addition , Report/Body/Warning/Item/Kind/Addition/Note , Report/Body/Warning/Item/Kind/Property , Report/Body/Warning/Item/Kind/Property/SignificancyPart , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition/Note , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Code , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Name , Report/Body/Warning/Item/Kind/Property/Type , Report/Body/Warning/Item/Kind/Property/WaveHeightPart , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base/WaveHeight
+  vpww-VPWW58-01.xml に無いパス: Report/Body/OfficeInfo , Report/Body/OfficeInfo/Office , Report/Body/OfficeInfo/Office/Name , Report/Body/Warning/Item/Kind/Addition , Report/Body/Warning/Item/Kind/Addition/Note , Report/Body/Warning/Item/Kind/Property , Report/Body/Warning/Item/Kind/Property/SignificancyPart , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition/Note , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Code , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Name , Report/Body/Warning/Item/Kind/Property/Type , Report/Body/Warning/Item/Kind/Property/WaveHeightPart , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base/WaveHeight
+  vpww-VPWW55-01.xml に無いパス: Report/Body/OfficeInfo , Report/Body/OfficeInfo/Office , Report/Body/OfficeInfo/Office/Name , Report/Body/Warning/Item/Kind/Addition , Report/Body/Warning/Item/Kind/Addition/Note , Report/Body/Warning/Item/Kind/Property , Report/Body/Warning/Item/Kind/Property/SignificancyPart , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition/Note , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Code , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Name , Report/Body/Warning/Item/Kind/Property/Type , Report/Body/Warning/Item/Kind/Property/WaveHeightPart , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base/WaveHeight
+  vpww-VPWW59-02.xml に無いパス: Report/Body/OfficeInfo , Report/Body/OfficeInfo/Office , Report/Body/OfficeInfo/Office/Name , Report/Body/Warning/Item/Kind/Addition , Report/Body/Warning/Item/Kind/Addition/Note , Report/Body/Warning/Item/Kind/Property , Report/Body/Warning/Item/Kind/Property/SignificancyPart , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition/Note , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Code , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Name , Report/Body/Warning/Item/Kind/Property/Type , Report/Body/Warning/Item/Kind/Property/WaveHeightPart , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base/WaveHeight
+  vpww-VPWW58-02.xml に無いパス: Report/Body/OfficeInfo , Report/Body/OfficeInfo/Office , Report/Body/OfficeInfo/Office/Name , Report/Body/Warning/Item/Kind/Addition , Report/Body/Warning/Item/Kind/Addition/Note , Report/Body/Warning/Item/Kind/Property , Report/Body/Warning/Item/Kind/Property/SignificancyPart , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition/Note , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Code , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Significancy/Name , Report/Body/Warning/Item/Kind/Property/Type , Report/Body/Warning/Item/Kind/Property/WaveHeightPart , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base/WaveHeight
+  vpww-VPWW59-03.xml に無いパス: Report/Body/OfficeInfo , Report/Body/OfficeInfo/Office , Report/Body/OfficeInfo/Office/Name
+  vpww-VPWW56-02.xml に無いパス: Report/Body/Warning/Item/Kind/Addition , Report/Body/Warning/Item/Kind/Addition/Note , Report/Body/Warning/Item/Kind/LastKind , Report/Body/Warning/Item/Kind/LastKind/Code , Report/Body/Warning/Item/Kind/LastKind/Name , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition , Report/Body/Warning/Item/Kind/Property/SignificancyPart/Base/Addition/Note , Report/Body/Warning/Item/Kind/Property/WaveHeightPart , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base , Report/Body/Warning/Item/Kind/Property/WaveHeightPart/Base/WaveHeight
+
+======== VPWS50 の所在 ========
+  snap1: 0 件
+  snap2: 0 件
+  snap3: 0 件
+  extra_l: 0 件
+  regular.xml: VPWS50 60 件（entry 784 件・フィードの updated '2026-10-24T13:41:52+09:00'・最古 2026-10-23T18:50:51Z / 最新 2026-10-24T04:40:59Z）
+    種類（件数の多い順）: VPWP50=129 VPFG50=120 VPFD61=118 VPFD51=118 VPFD60=118 VPWS50=60 VPFW60=56 VPFW50=56 VZSA50=3 VZSA60=2 VZSF61=1 VZSF51=1
+    リンクの前置き: https://www.data.jma.go.jp/developer/xml/data/ ×784
+    entry の形（子要素の並び）: title id updated author link content ×784
+    VPWS50 の例: title='気象警報・注意報（Ｒ０６）（集約通報）' updated=2026-10-24T04:40:59Z author='気象庁' link=https://www.data.jma.go.jp/developer/xml/data/20261024044101_0_VPWS50_010000.xml
+    VPWS50 の例: title='気象警報・注意報（Ｒ０６）（集約通報）' updated=2026-10-24T04:30:49Z author='気象庁' link=https://www.data.jma.go.jp/developer/xml/data/20261024043052_0_VPWS50_010000.xml
+    VPWS50 の例: title='気象警報・注意報（Ｒ０６）（集約通報）' updated=2026-10-24T04:20:58Z author='気象庁' link=https://www.data.jma.go.jp/developer/xml/data/20261024042101_0_VPWS50_010000.xml
+  電文の見本: あり
+  ★0件のときは「取得の範囲では見つからなかった」と読む（「無い」とは書かない）。
+
+======== 警報ページの data/r8/ の所在 ========
+4択の答え: HTML にある
+  見る範囲: 警報ページの HTML と、同じサイトの /bosai/ 以下の <script src> と modulepreload（最大 8 本）。JS が更に import するものは辿っていない
+  JS の候補: 0 本
+  所在: ファイル _run/evidence/warning_page.html・文字オフセット 209683・見つかった文字列 'data/r8/'
+    前後120字: switch(c){case"offices":case"class20s":let i=JMAWebUtility.area.convertCode(n.areas,h,c,"offices");f.warning=`./warning/data/r8/${i}.json`,f.flood="./flood/data/r8/flood_xml.json",f.noWaveTide="./warning/const/no_wave_tide.json",f.withTidalArea="./
+  所在: ファイル _run/evidence/warning_page.html・文字オフセット 209719・見つかった文字列 'data/r8/'
+    前後120字: s":let i=JMAWebUtility.area.convertCode(n.areas,h,c,"offices");f.warning=`./warning/data/r8/${i}.json`,f.flood="./flood/data/r8/flood_xml.json",f.noWaveTide="./warning/const/no_wave_tide.json",f.withTidalArea="./warning/const/with_tidal_area.json",
+  所在: ファイル _run/evidence/warning_page.html・文字オフセット 260565・見つかった文字列 'data/r8/'
+    前後120字:  M=[],u={};switch(g){case"offices":M.push(v),u[v]=`./warning_timeline/data/${v}.json`,u[`warning_json_${v}`]=`./warning/data/r8/${v}.json`,u.flood_json="./flood/data/r8/flood_xml.json",u.noWaveTide="./warning/const/no_wave_tide.json",u.withTidalAre
+  所在: ファイル _run/evidence/warning_page.html・文字オフセット 260606・見つかった文字列 'data/r8/'
+    前後120字: (v),u[v]=`./warning_timeline/data/${v}.json`,u[`warning_json_${v}`]=`./warning/data/r8/${v}.json`,u.flood_json="./flood/data/r8/flood_xml.json",u.noWaveTide="./warning/const/no_wave_tide.json",u.withTidalArea="./warning/const/with_tidal_area.json",
+  所在: ファイル _run/evidence/warning_page.html・文字オフセット 260940・見つかった文字列 'data/r8/'
+    前後120字: convertCode(y.areas,v,g,"offices");M.push(i),u[i]=`./warning_timeline/data/${i}.json`,u[`warning_json_${i}`]=`./warning/data/r8/${i}.json`,u.flood_json="./flood/data/r8/flood_xml.json",u.noWaveTide="./warning/const/no_wave_tide.json",u.withTidalAre
+  data/r8/ そのもの: あり
+
+======== 利用条件の原文（空白・改行を1つの空白にまとめた以外は原文のまま） ========
+[coment.html]
+  「出典」の段落: 7 件
+    「公共データ利用規約（第 1.0 版）のうち、出典記載例等、気象庁ホームページのみに適用される情報については、下記の「公共データ利用規約（第 1.0 版）に関する重要情報」を参照してください。」
+    「(1) 出典の記載について」
+    「コンテンツを利用する際は出典を記載してください。出典の記載方法は以下のとおりです。」
+    「（出典記載例）」
+    「出典：気象庁ホームページ （当該ページのURL）」
+    「出典：○○気象台ホームページ （当該ページのURL）」
+    「コンテンツを編集・加工等して利用する場合は、上記出典とは別に、編集・加工等を行ったことを記載してください。 また編集・加工した情報を、あたかも国（又は府省等）が作成したかのような態様で公表・利用してはいけません。」
+  「公共データ利用規約」の行: 4 件
+    「気象庁ホームページで公開している情報（以下「コンテンツ」といいます。）は、権利表記の記載がない限り「公共データ利用規約（第1.0版）」に準拠した利用条件の下で、利用することができます。 利用に当たっては、公共データ利用規約（第 1.0 版）を遵守してください。」
+    「公共データ利用規約（第1.0版）」
+    「公共データ利用規約（第 1.0 版）のうち、出典記載例等、気象庁ホームページのみに適用される情報については、下記の「公共データ利用規約（第 1.0 版）に関する重要情報」を参照してください。」
+    「公共データ利用規約（第 1.0 版）に関する重要情報」
+  「加工」を含む段落: 4 件
+    「コンテンツを編集・加工等して利用する場合は、上記出典とは別に、編集・加工等を行ったことを記載してください。 また編集・加工した情報を、あたかも国（又は府省等）が作成したかのような態様で公表・利用してはいけません。」
+    「（コンテンツを編集・加工等して利用する場合の記載例）」
+    「気象庁「図・写真等の名称」 （当該ページのURL）を加工して作成」
+    「気象庁HPへのウェブ広告の表示に当たっては、広告運用受託事業者において、当該広告が広告であることを明確にするための表示や加工を行うものとする。」
+[xmlpull.html]
+  該当する文: 5 件
+    「■ダウンロード量超過時のアクセス遮断について」
+    「気象庁防災情報XMLを公開しているURLに対し、1日10GB以上のダウンロードを伴うアクセスが確認された場合、アクセス元のIPアドレスを遮断します。」
+    「遮断された場合、一度取得したファイルを再度取得しない等の改修をお願いいたします。また、バグ等によりそのような動作をしていないか、ご確認をお願いいたします。」
+    「○高頻度フィード」
+    「○長期フィード」
+  文中に出てくるフィードのファイル名: （無かった）
+[developer/index.html]
+  該当する文: 0 件（見つからなかった）
+  文中に出てくるフィードのファイル名: （無かった）
+[ryuui.pdf] バイトのまま保存した。中身は別途 Read で確認する（この道具は読んでいない）。
+
+======== probe の集計 ========
+probe の開始(UTC): 2026-10-24T04:49:04Z   N（area.json の offices のコード数）= 58
+  fc: HTTP 200 = 56 / 404 = 2 / その他の状態 = 0 / 読めなかった = 0
+    最大 6,190 バイト（コード 460100）→ 3倍 = 18,570（取得先の max_bytes 案 200,000 以下か: はい）
+  ov: HTTP 200 = 56 / 404 = 2 / その他の状態 = 0 / 読めなかった = 0
+    最大 2,172 バイト（コード 471000）→ 3倍 = 6,516（取得先の max_bytes 案 50,000 以下か: はい）
+  fc の一番外の配列の要素数の分布: 2要素=56コード
+  reportDatetime の時差の分布: fc:+09:00=56 ov:+09:00=56
+  発表から probe までの経過（時間）: 最小 0.3 / 中央値 2.8 / 最大 3.3（max_report_age_hours 24 の確認材料）
+  4本（130000・270000 の fc・ov）は本体取得と同じ応答を再利用した。
+
+======== 取得量の試算（計画書 7.3 の式） ========
+  FEED_MAX_BYTES = 3 × extra.xml の最大 312,433 = 937,299
+  BACKFILL_FEED_MAX_BYTES = 3 × extra_l.xml 3,752,853 = 11,258,559
+  MAX_LINKS_PER_RUN = 50・MAX_BYTES_PER_LINK = 200,000（計画書の既定）。電文の最大 26,802 の3倍 = 80,406（既定以内）
+  N=2: 48 × [(200,000+50,000)×2 + jma-feed 937,299 + warn(937,299+11,258,559+50×200,000)] = 48 × 23,633,157 = 1,134,391,536 バイト/日（予算 2,000,000,000 に対して 収まる）
+  N=58: 48 × [(200,000+50,000)×58 + jma-feed 937,299 + warn(937,299+11,258,559+50×200,000)] = 48 × 37,633,157 = 1,806,391,536 バイト/日（予算 2,000,000,000 に対して 収まる）
+  1日の取得回数（準備中公開・N=2）: 48 × [fc 2 + ov 2 + jma-feed 1 + warn の高頻度 1 + 長期 1 + 電文(上限 50)] = 2736 回以下
+  fc・ov の max_bytes は見本の3倍が下限（PR2 の試験6）: 上の probe の最大の3倍と見比べる。
+
+======== 読めなかった／未確認の一覧 ========
+- https://www.data.jma.go.jp/developer/xml/data/20261024044101_0_VPWS50_010000.xml — 読めなかった: 大きすぎる（Content-Length 1,328,234 が上限 1,000,000 を超える）
+- bosai の JSON に公共データ利用規約が及ぶか — この道具では確認できない（照会(3)）。
+- 電文が発表中の警報・注意報の全部を含むか — 要素のパス一覧から読み取る。確認は PR2 と気象庁の解説資料で。
+- 取得時の気象 — 記入欄が未記入（店主が記入する）。
+- ryuui.pdf の中身 — バイトで保存しただけ。別途 Read で確認する。
+
+======== sha256 一覧（出荷物。shasum -a 256 -c で照合できる形） ========
+c25aa12765a01edcf82ff5af2d1931cc2e3212c4944fac2c8438fd17aa2e93de  extra.xml
+576d82fc4bff617152263d934e78f11d8fa5ac7ec26c4c3fbe809688b1b9d636  extra_l.xml
+b2716ef1f338f66a7080c2498f0768e3941eebbd6880af70917f67b16ec09992  area.json
+ceb0d5f2bfafa5baf0692ec8cf12280b13b79dd7a90557c4ed44eb1e942ff3a5  fc-130000.json
+86f3b14e8abfae88548b9bceee2f786f46702781f592af2062091025b5fc55e1  fc-270000.json
+18671aba0eb0caaf81c69877bc7763277279dbf1467497c828e10c5fe3f5b84a  ov-130000.json
+ec7fab84024f9023fdb1d33a9d72498e59a41e049f21d605e9c455945669dee2  ov-270000.json
+d2255339875ad3c345a5adb4172e581583271594599de9310db823fd72179738  vpww-VPWW61-01.xml
+ccd717442f8805b28f65209a184760d1bed9c5a24b38f358d5ab509127c71a0b  vpww-VPWW61-02.xml
+cb0538eea23b5662fbd8bd3d726a96fc8722624706f67d6f7ebee43adb7ec60c  vpww-VPWW59-01.xml
+1f30807ae1572bff2634872b9b6dd3a82d5448038a2323081dcdeac5af471358  vpww-VPWW56-01.xml
+d66b1f396693bd77daee00012ca994937390942eda464f17a7902ad0d64c715c  vpww-VPWW58-01.xml
+8e63163ceea4d8bfa8e74625653ee6d9837fbe5854b48e33a96ab5b1d98e1d68  vpww-VPWW55-01.xml
+e554ee2570f62a2233376a6fe080c9432d43a6671a213bb9ba1bec9899a9e7bd  vpww-VPWW59-02.xml
+c54588c212d2e4593c82403cc98feb8b890e98fd4e87c3dd977198b71b7f25ef  vpww-VPWW58-02.xml
+5b9f33485a070c3dd93ee839d746fc36ee24bfab9814957c2b64a2fb9406b8a7  vpww-VPWW59-03.xml
+1dfcb45e6d6b52276fe40dd09b7306d4261bea8d8210112e2f1ba0b5dd9b445d  vpww-VPWW56-02.xml
+4785e41561ba3c11995d2293dcf332bc4fcd592a74e85ca7ba2331af91c771fd  probe.json

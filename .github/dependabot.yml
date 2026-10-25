@@ -1,0 +1,32 @@
+# 依存の更新を週1回まとめて PR にする。出たばかりの版は7日待つ（cooldown。乗っ取られた版を掴まないため）。
+# ★SHA で固定した Actions には Dependabot の「脆弱性の警告」が出ない。だから版の更新（この設定）で追いかける。
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    cooldown:
+      default-days: 7
+    groups:
+      npm:
+        applies-to: version-updates
+        patterns: ["*"]
+    open-pull-requests-limit: 5

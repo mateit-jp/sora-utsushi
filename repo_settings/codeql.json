@@ -1,0 +1,5 @@
+{
+  "state": "configured",
+  "query_suite": "default",
+  "languages": ["actions", "python"]
+}

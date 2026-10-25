@@ -1,0 +1,19 @@
+// Cloudflare Workers の静的アセットだけで配る（Worker のコードを持たない＝型A）。
+// ★型B（エッジ関数）にするときだけ "main" と "assets.run_worker_first" を足す（docs/型Bへの差分.md）。
+// ★_headers は Worker のコードが作った応答には効かない（型Bではコードでヘッダを付ける）。
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "sora-utsushi",
+  "compatibility_date": "2026-10-23",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  },
+  // 独自ドメインを付けるまでは <name>.<アカウント>.workers.dev で公開する
+  "workers_dev": true,
+  // 版ごとのプレビュー URL を作らない（検査を通っていない版や古い版が公開され続けるのを防ぐ）
+  "preview_urls": false,
+  // Workers のログ（Observability）を残さない（「運営者はアクセスログを独自に保存していません」を設定で決める）
+  "observability": { "enabled": false }
+}
