@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import tempfile
@@ -135,7 +136,9 @@ class CheckRepoTest(unittest.TestCase):
         self.assertCaught("src/worker.js: 未設定の印", production=True)
 
     def test_package_caret_version(self):
-        self.edit("package.json", '"wrangler": "4.151.0"', '"wrangler": "^4.151.0"')
+        # 版は Dependabot が上げるので、文字列を固定せずに今の版を package.json から読む
+        ver = json.loads((self.root / "package.json").read_text(encoding="utf-8"))["devDependencies"]["wrangler"]
+        self.edit("package.json", f'"wrangler": "{ver}"', f'"wrangler": "^{ver}"')
         self.assertCaught("1.2.3 の形で固定")
 
     def test_package_install_hook(self):
