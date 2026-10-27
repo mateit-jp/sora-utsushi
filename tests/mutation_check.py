@@ -187,6 +187,12 @@ MUTANTS = [
     ("tools/fetch_jma_warning.py", "lambda: clock() - started > DEADLINE_SECONDS", "lambda: False", "G-二段: 締切を過ぎたら取りに行かない"),
     ("tools/fetch_jma_warning.py", "        key = (office, kind)", '        key = (office, "")', "G-二段: 官署×電文の種類ごとに保持する"),
     ("tools/fetch_jma_warning.py", '        report_time = common.iso_z(common.parse_report_time(feed["updated"][0]["#text"]))', '        report_time = feed["updated"][0]["#text"]', "G-二段: data/warn.json の report_time は UTC の Z の形"),
+    # ---- 第1号の写しの関所と区域ページ（tools/site_hooks.py・計画書 5.2 の PR3）----
+    ("tools/site_hooks.py", "        if actual != expected:", "        if False:", "写しの関所: 元の文字列との比較"),
+    ("tools/site_hooks.py", '            if rec["child"]:', "            if False:", "写しの関所: data-copy の要素の中の子要素"),
+    ("tools/site_hooks.py", '        return [], unreadable + [f"写しの関所: {data_dir} も dist/data/ も無いので、data-copy の要素 {len(records)} 個を照合できませんでした"]', "        return [], unreadable", "写しの関所: 照合する JSON が無いときは「検査できませんでした」"),
+    ("tools/site_hooks.py", '                unreadable.append(f"写しの関所: {sid}.json を読めませんでした（{type(e).__name__}）")', "                pass", "写しの関所: JSON が読めないときは「検査できませんでした」"),
+    ("tools/site_hooks.py", '    if cfg["site"].get("weather_sections_enabled") is not True:', "    if False:", "G-準備中: 旗が false の間は区域ページを作らない"),
 ]
 
 
