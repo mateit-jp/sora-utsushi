@@ -1,5 +1,7 @@
 {
-  "areas": [
+  "source": "https://www.jma.go.jp/bosai/common/const/area.json",
+  "fetched_at": "2026-10-24T04:48:40Z",
+  "offices": [
     {"code": "011000", "name": "宗谷地方"},
     {"code": "012000", "name": "上川・留萌地方"},
     {"code": "013000", "name": "網走・北見・紋別地方"},

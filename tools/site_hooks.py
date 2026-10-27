@@ -12,12 +12,14 @@
 - G-名前（計画書 2.1）: サイト名・URL のホスト名・Worker 名・トップの <h1> と <title>・全ページの名前の <meta> に、
   気象庁や天気サービスの名前・「公式」などの語を入れない。サイト名は「（非公式）」で終わる。
 - 設定キー（計画書 4.6）: config の "site" は weather_sections_enabled（真偽値）と warning_delay_minutes（null か 30〜89 の整数）だけ。
-- G-取得量（計画書 7.3）: 1日の取得量の最悪値が予算（2,000,000,000 バイト）以下。custom の取得先の加算は PR2 で足す。
+- G-取得量（計画書 7.3）: 1日の取得量の最悪値が予算（2,000,000,000 バイト）以下。custom の取得先は、取り込みの道具の
+  定数（フィード2本と電文の上限）から最悪値を足す。定数を読めなければ違反（読めなかったを通さない。PR2）。
 - G-準備中（計画書 5.2）: 天気の欄の旗が false の間は、天気の欄・区域ページ・データの公開を出さず、トップに「準備中です」、
   robots.txt は Disallow: /。旗が true ならトップに「準備中です」を残さない。
 """
 from __future__ import annotations
 
+import ast
 import json
 import re
 import unicodedata
@@ -45,6 +47,9 @@ DELAY_MIN, DELAY_MAX = 30, 89  # 90 以上はページ全体の閾値（90分）
 # ---- G-取得量（計画書 7.3） ----
 RUNS_PER_DAY = 48  # 30分ごと
 DAILY_BUDGET_BYTES = 2_000_000_000  # 1日10GB（IP 遮断の線）の20%
+# custom の取得先 → その取り込みの道具。1回の最悪値は フィード＋長期フィード＋1回に辿る数×電文1本 の上限（計画書 7.3）
+CUSTOM_FETCHERS = {"warn": "tools/fetch_jma_warning.py"}
+CUSTOM_WORST_CONSTANTS = ("FEED_MAX_BYTES", "BACKFILL_FEED_MAX_BYTES", "MAX_LINKS_PER_RUN", "MAX_BYTES_PER_LINK")
 
 # ---- G-準備中 ----
 PREPARING_TEXT = "準備中です"
@@ -242,9 +247,35 @@ def _read_json(root: Path, rel: str, unreadable: list[str]) -> object:
         return None
 
 
-def daily_worst_bytes(sources: list[dict]) -> int:
-    """G-取得量の式（計画書 7.3）: 48 ×（custom でない取得先の max_bytes の和。each は展開済み）。"""
-    return RUNS_PER_DAY * sum(src["max_bytes"] for src in sources if src["format"] != "custom")
+def custom_worst_bytes(root: Path, src: dict) -> int:
+    """custom の取得先の1回の最悪値を、取り込みの道具の定数から計算する（道具を import せず、定数の行だけを読む）。
+
+    定数が読めなければ ValueError（G-取得量は「読めなかった」を通さない）。
+    """
+    rel = CUSTOM_FETCHERS.get(src["id"])
+    if rel is None:
+        raise ValueError("最悪値を計算する規則がありません")
+    try:
+        tree = ast.parse((root / rel).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, SyntaxError) as e:
+        raise ValueError(f"{rel} を読めませんでした（{type(e).__name__}）") from None
+    values: dict[str, int] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            value = node.value
+            if isinstance(value, ast.Constant) and type(value.value) is int:
+                values[node.targets[0].id] = value.value
+    missing = [name for name in CUSTOM_WORST_CONSTANTS if name not in values]
+    if missing:
+        raise ValueError(f"{rel} に整数の定数 {missing} がありません")
+    return values["FEED_MAX_BYTES"] + values["BACKFILL_FEED_MAX_BYTES"] + values["MAX_LINKS_PER_RUN"] * values["MAX_BYTES_PER_LINK"]
+
+
+def daily_worst_bytes(sources: list[dict], custom_worst: dict[str, int]) -> int:
+    """G-取得量の式（計画書 7.3）: 48 ×［custom でない取得先の max_bytes の和（each は展開済み）＋ custom の最悪値の和］。"""
+    per_run = sum(src["max_bytes"] for src in sources if src["format"] != "custom")
+    per_run += sum(custom_worst.values())
+    return RUNS_PER_DAY * per_run
 
 
 def check_repo(*, root: Path, production: bool) -> tuple[list[str], list[str]]:
@@ -278,10 +309,15 @@ def check_repo(*, root: Path, production: bool) -> tuple[list[str], list[str]]:
     except common.ConfigError as e:
         unreadable.append(f"site/sources.json（G-取得量: {e}）")
     else:
-        custom = [src["id"] for src in sources if src["format"] == "custom"]
-        if custom:
-            problems.append(f"G-取得量: custom の取得先 {custom} の最悪値を計算する規則がまだありません（PR2 で足す）")
-        worst = daily_worst_bytes(sources)
+        custom_worst: dict[str, int] = {}
+        for src in sources:
+            if src["format"] != "custom":
+                continue
+            try:
+                custom_worst[src["id"]] = custom_worst_bytes(root, src)
+            except ValueError as e:
+                problems.append(f"G-取得量: custom の取得先 {src['id']} の最悪値を計算できません（{e}）。0 と数えずに止めます")
+        worst = daily_worst_bytes(sources, custom_worst)
         if worst > DAILY_BUDGET_BYTES:
             problems.append(f"G-取得量: 1日の最悪値 {worst:,} バイトが予算 {DAILY_BUDGET_BYTES:,} バイトを超えます（計画書 7.3）")
     return problems, unreadable

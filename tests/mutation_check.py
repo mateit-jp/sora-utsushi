@@ -168,11 +168,21 @@ MUTANTS = [
     ("tools/site_hooks.py", "        elif not DELAY_MIN <= delay <= DELAY_MAX:", "        elif False:", "設定キー: warning_delay_minutes の範囲"),
     ("tools/site_hooks.py", "    unknown = sorted(set(site) - set(SITE_KEYS))", "    unknown = []", "設定キー: site のほかのキーを止める"),
     ("tools/site_hooks.py", "        if worst > DAILY_BUDGET_BYTES:", "        if False:", "G-取得量: 予算との比較"),
-    ("tools/site_hooks.py", "        if custom:", "        if False:", "G-取得量: custom の取得先を0と数えない"),
+    ("tools/site_hooks.py", "                problems.append(f\"G-取得量: custom の取得先 {src['id']} の最悪値を計算できません（{e}）。0 と数えずに止めます\")", "                pass", "G-取得量: custom の取得先を0と数えない"),
     ("tools/site_hooks.py", "    if enabled is False:", "    if False:", "G-準備中: 旗が false の間の検査"),
     ("tools/site_hooks.py", "        if top is not None and PREPARING_TEXT not in top_text:", "        if False:", "G-準備中: トップに「準備中です」"),
     ("tools/site_hooks.py", '    if any(line.lower().startswith("allow:") for line in lines):', "    if False:", "G-準備中: robots.txt に Allow を置かない"),
     ("tools/site_hooks.py", "        if top is not None and PREPARING_TEXT in top_text:", "        if False:", "G-準備中: 旗が true ならトップに「準備中です」を残さない"),
+    # ---- 第1号の二段の取り込み（tools/fetch_jma_warning.py・計画書 5.2 の G-二段・PR2）と G-取得量の custom の加算 ----
+    ("tools/site_hooks.py", "    per_run += sum(custom_worst.values())", "    pass", "G-取得量: custom の取得先の最悪値を足す"),
+    ("tools/fetch_jma_warning.py", "    if not isinstance(href, str) or not href.startswith(LINK_PREFIX):", "    if not isinstance(href, str):", "G-二段: 前置きの外のリンクを辿らない"),
+    ("tools/fetch_jma_warning.py", "    if failed:", "    if False:", "G-二段: 1本でも読めなければ warn 全体を unreadable"),
+    ("tools/fetch_jma_warning.py", "    wanted = wanted[:MAX_LINKS_PER_RUN]", "    wanted = wanted", "G-二段: 1回に辿る数の上限"),
+    ("tools/fetch_jma_warning.py", "        if LIMIT_TO_PREPARING_OFFICES and office not in PREPARING_OFFICES:", "        if False:", "G-二段: 準備中は2官署の電文だけを辿る"),
+    ("tools/fetch_jma_warning.py", '        backfill = min(times) > common.parse_iso_z(prev["fetched_at"])', "        backfill = False", "G-二段: 取りこぼしの疑いで長期フィードを読む"),
+    ("tools/fetch_jma_warning.py", "lambda: clock() - started > DEADLINE_SECONDS", "lambda: False", "G-二段: 締切を過ぎたら取りに行かない"),
+    ("tools/fetch_jma_warning.py", "        key = (office, kind)", '        key = (office, "")', "G-二段: 官署×電文の種類ごとに保持する"),
+    ("tools/fetch_jma_warning.py", '        report_time = common.iso_z(common.parse_report_time(feed["updated"][0]["#text"]))', '        report_time = feed["updated"][0]["#text"]', "G-二段: data/warn.json の report_time は UTC の Z の形"),
 ]
 
 

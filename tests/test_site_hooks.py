@@ -24,6 +24,8 @@ class NameAndBudgetTest(unittest.TestCase):
         self.root = Path(self._tmp.name) / "repo"
         shutil.copytree(helpers.ROOT / "site", self.root / "site")
         shutil.copyfile(helpers.ROOT / "wrangler.jsonc", self.root / "wrangler.jsonc")
+        (self.root / "tools").mkdir()
+        shutil.copyfile(helpers.ROOT / "tools" / "fetch_jma_warning.py", self.root / "tools" / "fetch_jma_warning.py")
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -74,20 +76,35 @@ class NameAndBudgetTest(unittest.TestCase):
     def test_daily_budget(self):
         path = self.root / "site" / "sources.json"
         raw = json.loads(path.read_text(encoding="utf-8"))
-        codes = [a["code"] for a in json.loads((self.root / "site" / "areas.json").read_text(encoding="utf-8"))["areas"]]
+        codes = [a["code"] for a in json.loads((self.root / "site" / "areas.json").read_text(encoding="utf-8"))["offices"]]
         raw["sources"][0]["each"]["code"] = codes
         raw["sources"][0]["max_bytes"] = 1_000_000  # 48 × 1,000,000 × 56 区域 ＞ 2,000,000,000
         path.write_text(json.dumps(raw, ensure_ascii=False), encoding="utf-8")
         self.assertCaught("予算")
 
-    def test_custom_source_is_not_counted_as_zero(self):
+    def test_custom_source_without_a_rule_is_not_counted_as_zero(self):
         path = self.root / "site" / "sources.json"
         raw = json.loads(path.read_text(encoding="utf-8"))
-        raw["sources"].append({**raw["sources"][1], "id": "warn", "format": "custom", "each": None,
-                               "url": "https://www.data.jma.go.jp/developer/xml/feed/extra.xml",
-                               "report_time_path": None, "max_report_age_hours": None})
+        warn = next(s for s in raw["sources"] if s["id"] == "warn")
+        raw["sources"].append({**warn, "id": "other", "heartbeat": None})
         path.write_text(json.dumps(raw, ensure_ascii=False), encoding="utf-8")
-        self.assertCaught("custom の取得先")
+        self.assertCaught("custom の取得先 other の最悪値を計算できません")
+
+    def test_custom_constants_that_cannot_be_read_are_not_counted_as_zero(self):
+        path = self.root / "tools" / "fetch_jma_warning.py"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text.replace("MAX_LINKS_PER_RUN = 50", "MAX_LINKS_PER_RUN = int('50')"), encoding="utf-8")
+        self.assertCaught("custom の取得先 warn の最悪値を計算できません")
+        path.unlink()
+        self.assertCaught("custom の取得先 warn の最悪値を計算できません")
+
+    def test_custom_worst_is_added_to_the_budget(self):
+        # warn の上限を大きくすると、custom でない取得先だけなら予算内でも、足した値で予算を超える
+        path = self.root / "tools" / "fetch_jma_warning.py"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("MAX_BYTES_PER_LINK = 200_000", text)
+        path.write_text(text.replace("MAX_BYTES_PER_LINK = 200_000", "MAX_BYTES_PER_LINK = 1_000_000"), encoding="utf-8")
+        self.assertCaught("予算")
 
     def test_sources_that_cannot_be_read_are_unreadable(self):
         (self.root / "site" / "sources.json").write_text("{", encoding="utf-8")
