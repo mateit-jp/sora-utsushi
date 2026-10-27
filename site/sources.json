@@ -1,3 +1,49 @@
 {
-  "sources": []
+  "sources": [
+    {
+      "id": "fc",
+      "name": "府県天気予報",
+      "url": "https://www.jma.go.jp/bosai/forecast/data/forecast/{code}.json",
+      "format": "json",
+      "report_time_path": [
+        0,
+        "reportDatetime"
+      ],
+      "max_drop_ratio": 0.5,
+      "max_report_age_hours": 24,
+      "max_bytes": 200000,
+      "timeout_seconds": 10,
+      "each": {
+        "code": [
+          "130000",
+          "270000"
+        ]
+      },
+      "license": "公共データ利用規約（第1.0版）",
+      "license_url": "https://www.jma.go.jp/jma/kishou/info/coment.html",
+      "attribution": "出典：気象庁ホームページ （https://www.jma.go.jp/bosai/forecast/）"
+    },
+    {
+      "id": "ov",
+      "name": "天気概況",
+      "url": "https://www.jma.go.jp/bosai/forecast/data/overview_forecast/{code}.json",
+      "format": "json",
+      "shape": "object",
+      "report_time_path": [
+        "reportDatetime"
+      ],
+      "max_report_age_hours": 24,
+      "max_bytes": 50000,
+      "timeout_seconds": 10,
+      "each": {
+        "code": [
+          "130000",
+          "270000"
+        ]
+      },
+      "license": "公共データ利用規約（第1.0版）",
+      "license_url": "https://www.jma.go.jp/jma/kishou/info/coment.html",
+      "attribution": "出典：気象庁ホームページ （https://www.jma.go.jp/bosai/forecast/）"
+    }
+  ]
 }

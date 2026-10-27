@@ -22,13 +22,15 @@ class CheckDistTest(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.out = self.tmp / "dist"
-        build.build(helpers.make_root(self.tmp), self.out, production=True, now=NOW)
+        self.root = helpers.make_root(self.tmp)
+        self.cfg = helpers.load_cfg(self.root)
+        build.build(self.root, self.out, production=True, now=NOW)
 
     def tearDown(self):
         self._tmp.cleanup()
 
     def problems(self, *, production: bool = True) -> list[str]:
-        problems, unreadable = check_dist.check_dist(self.out, production=production, now=NOW)
+        problems, unreadable = check_dist.check_dist(self.out, production=production, now=NOW, cfg=self.cfg)
         self.assertEqual(unreadable, [])
         return problems
 
@@ -53,7 +55,7 @@ class CheckDistTest(unittest.TestCase):
             return ["サイト専用の違反"], []
 
         with mock.patch.object(check_dist.site_hooks, "check_dist", side_effect=hook):
-            problems, _ = check_dist.check_dist(self.out, production=True, now=NOW, data_dir=self.tmp / "work-data")
+            problems, _ = check_dist.check_dist(self.out, production=True, now=NOW, data_dir=self.tmp / "work-data", cfg=self.cfg)
         self.assertIn("サイト専用の違反", problems)
         self.assertEqual(seen["data_dir"], self.tmp / "work-data")
 
@@ -415,19 +417,19 @@ class CheckDistTest(unittest.TestCase):
     # ---- 終了コード（違反=1・読めなかった=2） ----
     def test_exit_code_is_1_for_problems(self):
         self.edit("index.html", "</main>", "<script>alert(1)</script></main>")
-        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()), mock.patch.object(check_dist.common, "ROOT", self.root):
             self.assertEqual(check_dist.main([str(self.out)]), 1)
 
     def test_exit_code_is_2_when_a_file_cannot_be_read(self):
         (self.out / "broken.html").write_bytes(b"\xff\xfe\xfa")
-        problems, unreadable = check_dist.check_dist(self.out, production=False, now=NOW)
+        problems, unreadable = check_dist.check_dist(self.out, production=False, now=NOW, cfg=self.cfg)
         self.assertEqual(problems, [])
         self.assertTrue(unreadable)
-        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()), mock.patch.object(check_dist.common, "ROOT", self.root):
             self.assertEqual(check_dist.main([str(self.out)]), 2)
 
     def test_exit_code_is_0_when_clean(self):
-        with redirect_stdout(io.StringIO()):
+        with redirect_stdout(io.StringIO()), mock.patch.object(check_dist.common, "ROOT", self.root):
             self.assertEqual(check_dist.main([str(self.out)]), 0)
 
 
