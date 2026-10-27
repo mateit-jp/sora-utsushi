@@ -1,11 +1,15 @@
 {
-  "site_name": "サイトの名前（未設定）",
-  "site_url": "https://example.invalid/",
+  "site_name": "そらの写し（非公式）",
+  "site_url": "https://sora-utsushi.mateit-jp.workers.dev/",
   "language": "ja",
-  "unofficial_notice": "このサイトは非公式です。運営者は、止まっているサービスの事業者とは関係がありません。",
+  "unofficial_notice": "このサイトは非公式・独立運営です。気象庁・各天気サービスとは関係がなく、国や気象庁が作ったものではありません。表示しているのは気象庁の発表の写しで、予報や警報を独自に作ってはいません。最新の情報は必ず気象庁のサイトで確かめてください。",
   "official_links": [
-    {"label": "公式のお知らせ（未設定）", "url": "https://example.invalid/official"}
+    {"label": "気象庁の天気予報", "url": "https://www.jma.go.jp/bosai/forecast/"},
+    {"label": "気象庁の警報・注意報", "url": "https://www.jma.go.jp/bosai/warning/"}
   ],
-  "contact_url": "https://example.invalid/contact",
-  "max_status_age_minutes": 180
+  "contact_url": "https://github.com/mateit-jp/sora-utsushi/issues/new",
+  "max_status_age_minutes": 90,
+  "site": {"weather_sections_enabled": false, "warning_delay_minutes": null},
+  "publish_data": false,
+  "source_url_prefixes": ["https://www.jma.go.jp/bosai/", "https://www.data.jma.go.jp/developer/xml/feed/"]
 }

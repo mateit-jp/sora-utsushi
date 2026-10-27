@@ -37,8 +37,21 @@ TEST_CONFIG = {
     "site_url": LIVE,
     "official_links": [{"label": "公式のお知らせ", "url": "https://official.example.com/news"}],
     "contact_url": "https://github.com/test-owner/test-repo/issues",
+    # 汎用の道具の試験は、雛形と同じ条件で流す（取得先の前置きなし・データを公開・鮮度の閾値180分）。
+    # サイト専用の設定は、天気の欄を出す段（旗 true）にしておく（準備中の関所は tests/test_site_hooks.py が見る）
+    "max_status_age_minutes": 180,
+    "site": {"weather_sections_enabled": True, "warning_delay_minutes": None},
+    "publish_data": True,
+    "source_url_prefixes": None,
 }
 TEST_INDEX = "<h1>試験のサイト</h1>\n<p>試験の本文です。</p>\n"
+
+
+def load_cfg(root: Path) -> dict:
+    """check_dist に渡す設定（コマンドの check_dist.py と同じく、site/config.json を読んで渡す）。"""
+    import common
+
+    return common.load_config(root, production=False)
 
 
 def make_root(tmp: Path, *, sources: list | None = None, config: dict | None = None) -> Path:

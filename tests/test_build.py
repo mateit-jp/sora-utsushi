@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,15 +29,21 @@ class BuildTest(unittest.TestCase):
         return out
 
     def test_clean_build_passes_check_dist(self):
-        out = self.build(helpers.make_root(self.tmp))
-        problems, unreadable = check_dist.check_dist(out, production=True, now=NOW)
+        root = helpers.make_root(self.tmp)
+        out = self.build(root)
+        problems, unreadable = check_dist.check_dist(out, production=True, now=NOW, cfg=helpers.load_cfg(root))
         self.assertEqual(problems, [])
         self.assertEqual(unreadable, [])
 
     def test_template_as_copied_cannot_be_built_for_production(self):
-        # 写したままの雛形（未設定のまま）は公開用に作れない
+        # 未設定の印が残った site（写したままの雛形の値）は公開用に作れない。実物は値を入れたので、雛形の値を写しに書き戻して試す
+        root = self.tmp / "root"
+        shutil.copytree(helpers.ROOT / "site", root / "site")
+        cfg = json.loads((root / "site" / "config.json").read_text(encoding="utf-8"))
+        cfg["site_name"] = "サイトの名前（未設定）"
+        (root / "site" / "config.json").write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
         with self.assertRaises(build.BuildError) as cm:
-            build.build(helpers.ROOT, self.tmp / "dist", production=True, now=NOW)
+            build.build(root, self.tmp / "dist", production=True, now=NOW)
         self.assertIn("未設定", str(cm.exception))
 
     def test_production_lists_every_placeholder(self):
@@ -124,7 +131,7 @@ class BuildTest(unittest.TestCase):
         self.assertIn("知らない項目", str(cm.exception))
 
     def test_site_settings_need_a_rule_in_site_hooks(self):
-        root = helpers.make_root(self.tmp, config={"site": {"weather_sections_enabled": False}})
+        root = helpers.make_root(self.tmp, config={"site": {"weather_sections_enabled": True, "warning_delay_minutes": None, "no_rule_yet": 1}})
         with self.assertRaises(build.BuildError) as cm:
             self.build(root)
         self.assertIn("site_hooks.py", str(cm.exception))
@@ -137,7 +144,7 @@ class BuildTest(unittest.TestCase):
         html = (out / "area" / "130000.html").read_text(encoding="utf-8")
         self.assertIn("data-unofficial-banner", html)
         self.assertIn("<title>東京都 | 試験のサイト</title>", html)
-        problems, _ = check_dist.check_dist(out, production=True, now=NOW)
+        problems, _ = check_dist.check_dist(out, production=True, now=NOW, cfg=helpers.load_cfg(root))
         self.assertEqual(problems, [])
 
     def test_extra_page_names_are_checked(self):
@@ -172,7 +179,7 @@ class BuildTest(unittest.TestCase):
             self.assertNotIn("<script>alert", html)
             self.assertNotIn("<img src=x", html)
             self.assertNotIn("<b>x</b>", html)
-        problems, _ = check_dist.check_dist(out, production=True, now=NOW)
+        problems, _ = check_dist.check_dist(out, production=True, now=NOW, cfg=helpers.load_cfg(root))
         self.assertEqual(problems, [])
 
     def test_page_named_like_a_generated_page_is_refused(self):

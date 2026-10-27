@@ -160,6 +160,19 @@ MUTANTS = [
     ("repo_settings/apply.sh", 'if [ "$ADMIN" != "true" ]; then', 'if false; then', "apply.sh は管理者でないアカウントでは何も入れない"),
     ("repo_settings/apply.sh", "--jq '.permissions.admin' 2>/dev/null) || ADMIN=\"\"", "--jq '.permissions.admin' 2>/dev/null) || ADMIN=\"true\"", "apply.sh は管理者か読めないときも止まる"),
     ("repo_settings/check.sh", 'echo "違う    ${name}（今: ${got} / 期待: ${expected}）"', 'echo "違う    $name（今: $got / 期待: $expected）"', "macOS の sh で変数名を読み違えない書き方（${name}）"),
+    # ---- 第1号の関所（tools/site_hooks.py・計画書 5.2 の PR1）----
+    ("tools/site_hooks.py", "    if hits:", "    if False:", "G-名前: 禁止語の判定"),
+    ("tools/site_hooks.py", '    text = text.replace("非公式", "")', "    text = text", "G-名前: 「非公式」を取り除いてから判定する（既定の名前を落とさない）"),
+    ("tools/site_hooks.py", '        problems += name_problems(top.title or "", "index.html の <title>")', "        pass", "G-名前: トップの <title> も対象"),
+    ("tools/site_hooks.py", "        if isinstance(site_name, str) and not site_name.endswith(UNOFFICIAL_SUFFIX):", "        if False:", "G-名前: サイト名は「（非公式）」で終わる"),
+    ("tools/site_hooks.py", "        elif not DELAY_MIN <= delay <= DELAY_MAX:", "        elif False:", "設定キー: warning_delay_minutes の範囲"),
+    ("tools/site_hooks.py", "    unknown = sorted(set(site) - set(SITE_KEYS))", "    unknown = []", "設定キー: site のほかのキーを止める"),
+    ("tools/site_hooks.py", "        if worst > DAILY_BUDGET_BYTES:", "        if False:", "G-取得量: 予算との比較"),
+    ("tools/site_hooks.py", "        if custom:", "        if False:", "G-取得量: custom の取得先を0と数えない"),
+    ("tools/site_hooks.py", "    if enabled is False:", "    if False:", "G-準備中: 旗が false の間の検査"),
+    ("tools/site_hooks.py", "        if top is not None and PREPARING_TEXT not in top_text:", "        if False:", "G-準備中: トップに「準備中です」"),
+    ("tools/site_hooks.py", '    if any(line.lower().startswith("allow:") for line in lines):', "    if False:", "G-準備中: robots.txt に Allow を置かない"),
+    ("tools/site_hooks.py", "        if top is not None and PREPARING_TEXT in top_text:", "        if False:", "G-準備中: 旗が true ならトップに「準備中です」を残さない"),
 ]
 
 
