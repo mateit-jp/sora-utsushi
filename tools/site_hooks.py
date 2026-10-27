@@ -19,6 +19,9 @@
 - 写しの関所（計画書 9.5・PR3）: data-copy の要素の文字（または data-copy-attr の属性）が、build の作業場の data/<id>.json の
   data-path の値と1文字も違わない。辿れない・文字列でない・子要素がある は違反。照合に要る JSON が無い・読めなければ
   「検査できませんでした」（「問題なし」にしない）。
+- 禁止句の関所（計画書 9.6・PR4）: data-copy の要素の外の文字（全 HTML）と、公開する JS の文字列に、「警報なし」「安全です」
+  「リアルタイム」などの言い方を置かない（NFKC と空白の除去をしてから判定）。警報欄の中だけは「発表なし」「0件」も置かない。
+  data-copy の要素の中（気象庁の原文）は対象外。
 """
 from __future__ import annotations
 
@@ -114,7 +117,91 @@ def pages(*, root: Path, cfg: dict, sources: list[dict], state: dict, now: datet
         return {}
     import render_weather  # 第1号の描き方（旗が true のときだけ読む）
 
-    return render_weather.pages(root, sources, state, now)
+    return render_weather.pages(root, sources, state, now, delay=cfg["site"].get("warning_delay_minutes"))
+
+
+# ---- 禁止句の関所（計画書 9.6） ----
+FORBIDDEN_PHRASE_RE = re.compile(
+    r"(特別警報|警報|注意報)(等)?(は|が|の)?(なし|無し|ありません|発表されていません|出ていません|解除されています|平常|安全|問題ありません)"
+)
+FORBIDDEN_WORDS = ("安全です", "必ず最新", "常に最新", "リアルタイム", "遅れはありません", "遅れません")
+WARN_ONLY_WORDS = ("発表なし", "0件")  # 警報欄の中だけ（取得状況のページは empty を「0件」と書くので全体には掛けない）
+JS_STRING_RE = re.compile(r'"((?:[^"\\\n]|\\.)*)"|\'((?:[^\'\\\n]|\\.)*)\'')
+
+
+def _phrase_key(text: str) -> str:
+    """判定のための正規化（NFKC・全角と半角の空白と改行の除去）。"""
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", text))
+
+
+def phrase_hits(text: str, *, in_warn: bool = False) -> list[str]:
+    key = _phrase_key(text)
+    hits = [m.group(0) for m in FORBIDDEN_PHRASE_RE.finditer(key)]
+    hits += [word for word in FORBIDDEN_WORDS if word in key]
+    if in_warn:
+        hits += [word for word in WARN_ONLY_WORDS if word in key]
+    return hits
+
+
+class _PhraseScan(HTMLParser):
+    """data-copy の要素の外の文字（全体と、警報欄の中）を集める。"""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.outside: list[str] = []
+        self.warn: list[str] = []
+        self._stack: list[tuple[str, bool, bool]] = []  # (タグ, data-copy か, 警報欄か)
+
+    def _inside(self, index: int) -> bool:
+        return any(entry[index] for entry in self._stack)
+
+    def handle_starttag(self, tag, attrs):
+        if tag in VOID_TAGS:
+            return
+        a = dict(attrs)
+        self._stack.append((tag, "data-copy" in a, a.get("data-weather-section") == "warn"))
+
+    def handle_endtag(self, tag):
+        for i in range(len(self._stack) - 1, -1, -1):
+            if self._stack[i][0] == tag:
+                del self._stack[i:]
+                break
+
+    def handle_data(self, data):
+        if not self._inside(1):
+            self.outside.append(data)
+            if self._inside(2):
+                self.warn.append(data)
+
+
+def phrase_problems(dist: Path) -> tuple[list[str], list[str]]:
+    """禁止句の関所。全 HTML の data-copy の外の文字と、公開する JS の文字列を見る。"""
+    problems: list[str] = []
+    unreadable: list[str] = []
+    for path in sorted(dist.rglob("*.html")):
+        rel = path.relative_to(dist).as_posix()
+        scan = _PhraseScan()
+        try:
+            scan.feed(path.read_text(encoding="utf-8"))
+            scan.close()
+        except (OSError, UnicodeDecodeError) as e:
+            unreadable.append(f"{rel}（{type(e).__name__}。禁止句の関所）")
+            continue
+        found = phrase_hits("".join(scan.outside)) + [h for h in phrase_hits("".join(scan.warn), in_warn=True) if h in WARN_ONLY_WORDS]
+        if found:
+            problems.append(f"禁止句の関所: {rel}: 使えない言い方があります: {sorted(set(found))}（計画書 9.6）")
+    for path in sorted(dist.rglob("*.js")):
+        rel = path.relative_to(dist).as_posix()
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as e:
+            unreadable.append(f"{rel}（{type(e).__name__}。禁止句の関所）")
+            continue
+        literals = "\n".join(a or b for a, b in JS_STRING_RE.findall(text))
+        found = phrase_hits(literals)
+        if found:
+            problems.append(f"禁止句の関所: {rel}: 文字列に使えない言い方があります: {sorted(set(found))}（計画書 9.6）")
+    return problems, unreadable
 
 
 VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
@@ -365,6 +452,11 @@ def check_dist(*, dist: Path, data_dir: Path, cfg: dict | None, production: bool
     copy_found, copy_unreadable = copy_problems(dist, data_dir)
     problems += copy_found
     unreadable += copy_unreadable
+
+    # 禁止句の関所
+    phrase_found, phrase_unreadable = phrase_problems(dist)
+    problems += phrase_found
+    unreadable += phrase_unreadable
     return problems, unreadable
 
 

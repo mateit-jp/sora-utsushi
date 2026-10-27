@@ -193,6 +193,14 @@ MUTANTS = [
     ("tools/site_hooks.py", '        return [], unreadable + [f"写しの関所: {data_dir} も dist/data/ も無いので、data-copy の要素 {len(records)} 個を照合できませんでした"]', "        return [], unreadable", "写しの関所: 照合する JSON が無いときは「検査できませんでした」"),
     ("tools/site_hooks.py", '                unreadable.append(f"写しの関所: {sid}.json を読めませんでした（{type(e).__name__}）")', "                pass", "写しの関所: JSON が読めないときは「検査できませんでした」"),
     ("tools/site_hooks.py", '    if cfg["site"].get("weather_sections_enabled") is not True:', "    if False:", "G-準備中: 旗が false の間は区域ページを作らない"),
+    # ---- 第1号の禁止句の関所と警報欄（tools/site_hooks.py・tools/render_weather.py・計画書 5.2 の PR4）----
+    ("tools/site_hooks.py", "    hits = [m.group(0) for m in FORBIDDEN_PHRASE_RE.finditer(key)]", "    hits = []", "禁止句の関所: 検査"),
+    ("tools/site_hooks.py", '    return re.sub(r"\\s+", "", unicodedata.normalize("NFKC", text))', '    return re.sub(r"\\s+", "", text)', "禁止句の関所: NFKC の正規化（半角・全角の句）"),
+    ("tools/site_hooks.py", '    return re.sub(r"\\s+", "", unicodedata.normalize("NFKC", text))', '    return unicodedata.normalize("NFKC", text)', "禁止句の関所: 空白と改行の除去（空白入りの句）"),
+    ("tools/site_hooks.py", "        if not self._inside(1):", "        if self._inside(1):", "禁止句の関所: data-copy の中（原文）を外す"),
+    ("tools/site_hooks.py", '    for path in sorted(dist.rglob("*.js")):', "    for path in []:", "禁止句の関所: JS の文字列の走査"),
+    ("tools/site_hooks.py", "    if in_warn:", "    if False:", "禁止句の関所: 警報欄の中だけの語（発表なし・0件）"),
+    ("tools/render_weather.py", 'if isinstance(kind, dict) and kind.get("status") in SHOWN_STATUSES and isinstance(kind.get("name"), str)', 'if isinstance(kind, dict) and isinstance(kind.get("name"), str)', "警報欄: 状態が「発表」「継続」の行だけを載せる"),
 ]
 
 
