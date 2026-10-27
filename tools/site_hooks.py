@@ -16,6 +16,9 @@
   定数（フィード2本と電文の上限）から最悪値を足す。定数を読めなければ違反（読めなかったを通さない。PR2）。
 - G-準備中（計画書 5.2）: 天気の欄の旗が false の間は、天気の欄・区域ページ・データの公開を出さず、トップに「準備中です」、
   robots.txt は Disallow: /。旗が true ならトップに「準備中です」を残さない。
+- 写しの関所（計画書 9.5・PR3）: data-copy の要素の文字（または data-copy-attr の属性）が、build の作業場の data/<id>.json の
+  data-path の値と1文字も違わない。辿れない・文字列でない・子要素がある は違反。照合に要る JSON が無い・読めなければ
+  「検査できませんでした」（「問題なし」にしない）。
 """
 from __future__ import annotations
 
@@ -105,9 +108,130 @@ def pages(*, root: Path, cfg: dict, sources: list[dict], state: dict, now: datet
     """build.py が作る追加のページ。{dist の中のパス（例 "area/130000.html"）: ページの本文の断片（<h1> を含む）}。
 
     断片は base.html に入れて書き出される（帯・CSP・作った時刻は build.py が付ける）。外から来た文字列は common.esc() を通す。
-    天気の欄の旗が false の間（準備中）は、区域ページを作らない。旗が true のときの区域ページは PR3 で足す。
+    天気の欄の旗が false の間（準備中）は、区域ページを作らない。旗が true なら区域ページと一覧（tools/render_weather.py）。
     """
-    return {}  # 旗が false の間は区域ページを作らない。旗が true のときの区域ページは PR3 で足す
+    if cfg["site"].get("weather_sections_enabled") is not True:
+        return {}
+    import render_weather  # 第1号の描き方（旗が true のときだけ読む）
+
+    return render_weather.pages(root, sources, state, now)
+
+
+VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+
+
+class _CopyScan(HTMLParser):
+    """data-copy の要素ごとに、取得先・場所・照合する属性・文字・子要素の有無を集める（写しの関所）。"""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.records: list[dict] = []
+        self._stack: list[tuple[str, dict | None]] = []
+
+    def _open(self, tag: str, attrs: list, *, void: bool) -> None:
+        for _, rec in self._stack:
+            if rec is not None:
+                rec["child"] = True
+        a = {k: v for k, v in attrs}
+        rec = None
+        if "data-copy" in a:
+            attr = a.get("data-copy-attr")
+            rec = {"sid": a.get("data-copy") or "", "path": a.get("data-path"), "attr": attr,
+                   "attr_value": a.get(attr) if attr else None, "text": [], "child": False}
+            self.records.append(rec)
+        if not void:
+            self._stack.append((tag, rec))
+
+    def handle_starttag(self, tag, attrs):
+        self._open(tag, attrs, void=tag in VOID_TAGS)
+
+    def handle_startendtag(self, tag, attrs):
+        self._open(tag, attrs, void=True)
+
+    def handle_endtag(self, tag):
+        for i in range(len(self._stack) - 1, -1, -1):
+            if self._stack[i][0] == tag:
+                del self._stack[i:]
+                break
+
+    def handle_data(self, data):
+        for _, rec in self._stack:
+            if rec is not None:
+                rec["text"].append(data)
+
+
+def _dig(obj: object, path: object) -> object:
+    if not isinstance(path, list):
+        raise ValueError("data-path が並びではありません")
+    for key in path:
+        if isinstance(key, str) and isinstance(obj, dict) and key in obj:
+            obj = obj[key]
+        elif isinstance(key, int) and not isinstance(key, bool) and isinstance(obj, list) and 0 <= key < len(obj):
+            obj = obj[key]
+        else:
+            raise ValueError(f"{key!r} が見つかりません")
+    return obj
+
+
+def copy_problems(dist: Path, data_dir: Path) -> tuple[list[str], list[str]]:
+    """写しの関所。dist の全 HTML の data-copy の要素を、取り込んだ JSON の値と照合する。"""
+    import common
+
+    records: list[tuple[str, dict]] = []
+    unreadable: list[str] = []
+    for path in sorted(dist.rglob("*.html")):
+        rel = path.relative_to(dist).as_posix()
+        scan = _CopyScan()
+        try:
+            scan.feed(path.read_text(encoding="utf-8"))
+            scan.close()
+        except (OSError, UnicodeDecodeError) as e:
+            unreadable.append(f"{rel}（{type(e).__name__}。写しの関所）")
+            continue
+        records += [(rel, rec) for rec in scan.records]
+    if not records:
+        return [], unreadable  # 天気の欄が無い（準備中）なら、照合する物が無い
+    # 照合に使う JSON: build の作業場の data/（フォルダがあれば）。無ければ dist/data/（build が写した物）
+    if data_dir.is_dir():
+        base = data_dir
+    elif (dist / "data").is_dir():
+        base = dist / "data"
+    else:
+        return [], unreadable + [f"写しの関所: {data_dir} も dist/data/ も無いので、data-copy の要素 {len(records)} 個を照合できませんでした"]
+    problems: list[str] = []
+    payloads: dict[str, object] = {}
+    for rel, rec in records:
+        sid = rec["sid"]
+        where = f"{rel} の data-copy=\"{sid}\" data-path={rec['path']}"
+        if not common.SOURCE_ID_RE.match(sid):
+            problems.append(f"写しの関所: {where}: 取得先の id の形が違います")
+            continue
+        if sid not in payloads:
+            try:
+                payloads[sid] = json.loads((base / f"{sid}.json").read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, ValueError) as e:
+                payloads[sid] = None
+                unreadable.append(f"写しの関所: {sid}.json を読めませんでした（{type(e).__name__}）")
+        if payloads[sid] is None:
+            continue
+        try:
+            expected = _dig(payloads[sid], json.loads(rec["path"] or ""))
+        except ValueError as e:
+            problems.append(f"写しの関所: {where}: 元の JSON を辿れません（{e}）")
+            continue
+        if not isinstance(expected, str):
+            problems.append(f"写しの関所: {where}: 元の値が文字列ではありません")
+            continue
+        if rec["attr"]:
+            actual = rec["attr_value"]
+        else:
+            if rec["child"]:
+                problems.append(f"写しの関所: {where}: data-copy の要素の中に子要素があります")
+                continue
+            actual = "".join(rec["text"])
+        if actual != expected:
+            problems.append(f"写しの関所: {where}: 元の文字列と違います（元 {expected!r} ／ ページ {actual!r}）")
+    return problems, unreadable
 
 
 class _PageScan(HTMLParser):
@@ -236,6 +360,11 @@ def check_dist(*, dist: Path, data_dir: Path, cfg: dict | None, production: bool
             problems.append(f"G-準備中: 天気の欄の旗が true なのに、トップに「{PREPARING_TEXT}」が残っています")
     else:
         unreadable.append("site.weather_sections_enabled を読めませんでした（G-準備中）")
+
+    # 写しの関所
+    copy_found, copy_unreadable = copy_problems(dist, data_dir)
+    problems += copy_found
+    unreadable += copy_unreadable
     return problems, unreadable
 
 
