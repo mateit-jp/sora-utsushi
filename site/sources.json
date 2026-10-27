@@ -5,6 +5,11 @@
       "name": "府県天気予報",
       "url": "https://www.jma.go.jp/bosai/forecast/data/forecast/{code}.json",
       "format": "json",
+      "required_keys": [
+        "publishingOffice",
+        "reportDatetime",
+        "timeSeries"
+      ],
       "report_time_path": [
         0,
         "reportDatetime"
@@ -44,6 +49,38 @@
       "license": "公共データ利用規約（第1.0版）",
       "license_url": "https://www.jma.go.jp/jma/kishou/info/coment.html",
       "attribution": "出典：気象庁ホームページ （https://www.jma.go.jp/bosai/forecast/）"
+    },
+    {
+      "id": "jma-feed",
+      "name": "防災情報XML 高頻度フィード（全国の見張り役）",
+      "url": "https://www.data.jma.go.jp/developer/xml/feed/extra.xml",
+      "format": "xml",
+      "items_path": [
+        "entry"
+      ],
+      "report_time_path": [
+        "updated",
+        0,
+        "#text"
+      ],
+      "max_report_age_hours": 1,
+      "max_bytes": 937299,
+      "timeout_seconds": 10,
+      "license": "気象庁防災情報XML「ご利用上の留意事項」（平成29年3月3日）",
+      "license_url": "https://www.data.jma.go.jp/developer/ryuui.pdf",
+      "attribution": "出典：気象庁ホームページ （https://www.data.jma.go.jp/developer/index.html）"
+    },
+    {
+      "id": "warn",
+      "name": "気象警報・注意報（電文 VPWW55〜61）",
+      "url": "https://www.data.jma.go.jp/developer/xml/feed/extra.xml",
+      "format": "custom",
+      "heartbeat": "jma-feed",
+      "max_bytes": 2000000,
+      "timeout_seconds": 10,
+      "license": "気象庁防災情報XML「ご利用上の留意事項」（平成29年3月3日）",
+      "license_url": "https://www.data.jma.go.jp/developer/ryuui.pdf",
+      "attribution": "出典：気象庁ホームページ （https://www.data.jma.go.jp/developer/index.html）"
     }
   ]
 }

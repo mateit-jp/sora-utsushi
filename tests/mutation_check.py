@@ -11,15 +11,19 @@
 """
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 COPY_IGNORE = shutil.ignore_patterns(".git", "dist", "data", "node_modules", "__pycache__", ".wrangler")
 TIMEOUT_SECONDS = 300
+# 壊した版は写しごとに独立しているので、並べて流す（CI の test ジョブの timeout-minutes に収めるため）。結果の表示の順番は変えない
+MAX_PARALLEL = max(1, min(4, os.cpu_count() or 1))
 
 # (ファイル, 壊す前, 壊した後, 何の関所か)
 MUTANTS = [
@@ -168,11 +172,21 @@ MUTANTS = [
     ("tools/site_hooks.py", "        elif not DELAY_MIN <= delay <= DELAY_MAX:", "        elif False:", "設定キー: warning_delay_minutes の範囲"),
     ("tools/site_hooks.py", "    unknown = sorted(set(site) - set(SITE_KEYS))", "    unknown = []", "設定キー: site のほかのキーを止める"),
     ("tools/site_hooks.py", "        if worst > DAILY_BUDGET_BYTES:", "        if False:", "G-取得量: 予算との比較"),
-    ("tools/site_hooks.py", "        if custom:", "        if False:", "G-取得量: custom の取得先を0と数えない"),
+    ("tools/site_hooks.py", "                problems.append(f\"G-取得量: custom の取得先 {src['id']} の最悪値を計算できません（{e}）。0 と数えずに止めます\")", "                pass", "G-取得量: custom の取得先を0と数えない"),
     ("tools/site_hooks.py", "    if enabled is False:", "    if False:", "G-準備中: 旗が false の間の検査"),
     ("tools/site_hooks.py", "        if top is not None and PREPARING_TEXT not in top_text:", "        if False:", "G-準備中: トップに「準備中です」"),
     ("tools/site_hooks.py", '    if any(line.lower().startswith("allow:") for line in lines):', "    if False:", "G-準備中: robots.txt に Allow を置かない"),
     ("tools/site_hooks.py", "        if top is not None and PREPARING_TEXT in top_text:", "        if False:", "G-準備中: 旗が true ならトップに「準備中です」を残さない"),
+    # ---- 第1号の二段の取り込み（tools/fetch_jma_warning.py・計画書 5.2 の G-二段・PR2）と G-取得量の custom の加算 ----
+    ("tools/site_hooks.py", "    per_run += sum(custom_worst.values())", "    pass", "G-取得量: custom の取得先の最悪値を足す"),
+    ("tools/fetch_jma_warning.py", "    if not isinstance(href, str) or not href.startswith(LINK_PREFIX):", "    if not isinstance(href, str):", "G-二段: 前置きの外のリンクを辿らない"),
+    ("tools/fetch_jma_warning.py", "    if failed:", "    if False:", "G-二段: 1本でも読めなければ warn 全体を unreadable"),
+    ("tools/fetch_jma_warning.py", "    wanted = wanted[:MAX_LINKS_PER_RUN]", "    wanted = wanted", "G-二段: 1回に辿る数の上限"),
+    ("tools/fetch_jma_warning.py", "        if LIMIT_TO_PREPARING_OFFICES and office not in PREPARING_OFFICES:", "        if False:", "G-二段: 準備中は2官署の電文だけを辿る"),
+    ("tools/fetch_jma_warning.py", '        backfill = min(times) > common.parse_iso_z(prev["fetched_at"])', "        backfill = False", "G-二段: 取りこぼしの疑いで長期フィードを読む"),
+    ("tools/fetch_jma_warning.py", "lambda: clock() - started > DEADLINE_SECONDS", "lambda: False", "G-二段: 締切を過ぎたら取りに行かない"),
+    ("tools/fetch_jma_warning.py", "        key = (office, kind)", '        key = (office, "")', "G-二段: 官署×電文の種類ごとに保持する"),
+    ("tools/fetch_jma_warning.py", '        report_time = common.iso_z(common.parse_report_time(feed["updated"][0]["#text"]))', '        report_time = feed["updated"][0]["#text"]', "G-二段: data/warn.json の report_time は UTC の Z の形"),
 ]
 
 
@@ -198,23 +212,32 @@ def main() -> int:
         if run_tests(base) != 0:
             print("壊す前の版で試験が通りません。先に試験を直してください", file=sys.stderr)
             return 2
-        for i, (rel, old, new, what) in enumerate(MUTANTS, 1):
+
+        def check_one(numbered: tuple[int, tuple[str, str, str, str]]) -> tuple[str, str | None]:
+            """1件を壊して試験を流す。戻り値は (表示名, 失敗の文 or None)。"""
+            i, (rel, old, new, what) = numbered
             label = f"M{i:02d} {what}"
             work = Path(tmp) / f"m{i:02d}"
             shutil.copytree(base, work)
-            path = work / rel
-            text = path.read_text(encoding="utf-8")
-            count = text.count(old)
-            if count != 1:
-                failures.append(f"{label}: 壊す場所が {count} か所あります（1か所であるべき）。型が古い")
+            try:
+                path = work / rel
+                text = path.read_text(encoding="utf-8")
+                count = text.count(old)
+                if count != 1:
+                    return label, f"{label}: 壊す場所が {count} か所あります（1か所であるべき）。型が古い"
+                path.write_text(text.replace(old, new), encoding="utf-8")
+                if run_tests(work) == 0:
+                    return label, f"{label}: 壊しても試験が通りました（生き残り）"
+                return label, None
+            finally:
                 shutil.rmtree(work)
-                continue
-            path.write_text(text.replace(old, new), encoding="utf-8")
-            if run_tests(work) == 0:
-                failures.append(f"{label}: 壊しても試験が通りました（生き残り）")
-            else:
-                print(f"赤になりました: {label}")
-            shutil.rmtree(work)
+
+        with ThreadPoolExecutor(max_workers=MAX_PARALLEL) as pool:
+            for label, failure in pool.map(check_one, enumerate(MUTANTS, 1)):
+                if failure:
+                    failures.append(failure)
+                else:
+                    print(f"赤になりました: {label}", flush=True)
     for failure in failures:
         print(f"検算の失敗: {failure}")
     if failures:
