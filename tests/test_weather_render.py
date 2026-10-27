@@ -210,8 +210,8 @@ class WeatherRenderTest(unittest.TestCase):
         out = self.build()
         html = (out / "area" / "130000.html").read_text(encoding="utf-8")
         sections = re.findall(r'<section data-weather-section="(\w+)">(.*?)</section>', html, re.S)
-        self.assertEqual([kind for kind, _ in sections], ["fc", "ov"])
-        for kind, body in sections:
+        self.assertEqual([kind for kind, _ in sections], ["warn", "fc", "ov"])  # 警報欄は PR4（tests/test_warning_panel.py）
+        for kind, body in sections[1:]:
             self.assertIn('<p data-section-stale data-fetched-at="2026-10-24T05:00:00Z" data-max-age-minutes="90" hidden></p>', body, kind)
 
     # 10
