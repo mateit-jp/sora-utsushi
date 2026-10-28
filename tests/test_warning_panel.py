@@ -54,10 +54,11 @@ class Copies(HTMLParser):
             self._open[2].append(data)
 
 
-class WarningPanelTest(unittest.TestCase):
-    def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.tmp = Path(self._tmp.name)
+class Scenario:
+    """1つの条件の作り物（一時の site/・偽の取得関数の中身・取り込みと build）。"""
+
+    def __init__(self, base: Path):
+        self.tmp = base
         self.root = self.tmp / "root"
         shutil.copytree(helpers.ROOT / "site", self.root / "site")
         self.routes = {FEED_URL: (FIXTURES / "extra.xml").read_bytes(), fjw.BACKFILL_FEED_URL: (FIXTURES / "extra_l.xml").read_bytes()}
@@ -66,14 +67,6 @@ class WarningPanelTest(unittest.TestCase):
         for code in CODES:
             self.routes[FC_URL.format(code)] = (FIXTURES / f"fc-{code}.json").read_bytes()
             self.routes[OV_URL.format(code)] = (FIXTURES / f"ov-{code}.json").read_bytes()
-
-    def tearDown(self):
-        self._tmp.cleanup()
-
-    def fresh(self) -> None:
-        """同じ試験の中で、別の条件を作り直す（前の条件の data/ を持ち越さない）。"""
-        self.tearDown()
-        self.setUp()
 
     def turn_on(self, delay: int | None = None) -> None:
         path = self.root / "site" / "config.json"
@@ -92,10 +85,6 @@ class WarningPanelTest(unittest.TestCase):
         out = self.tmp / "dist"
         build.build(self.root, out, production=False, now=NOW)
         return out
-
-    def panel(self, out: Path, code: str = "130000") -> str:
-        html = (out / "area" / f"{code}.html").read_text(encoding="utf-8")
-        return re.search(r'<section data-weather-section="warn">.*?</section>', html, re.S).group(0)
 
     def gate(self, out: Path) -> tuple[list[str], list[str]]:
         cfg = common.load_config(self.root, production=False)
@@ -142,46 +131,89 @@ class WarningPanelTest(unittest.TestCase):
         self.fetch_all()
         return self.build()
 
+    def delay45(self) -> Path:
+        self.turn_on(delay=45)
+        self.fetch_all()
+        return self.build()
+
+
+def panel(out: Path, code: str = "130000") -> str:
+    html = (out / "area" / f"{code}.html").read_text(encoding="utf-8")
+    return re.search(r'<section data-weather-section="warn">.*?</section>', html, re.S).group(0)
+
+
+class WarningPanelTest(unittest.TestCase):
+    """条件ごとの作り物は、組の最初に1回だけ作って使い回す（試験は読むだけ。書き換える試験は写しで行う）。
+
+    条件を作るたびに取り込み（長期フィード 3.7MB を含む）と build を流すと重く、検算（壊した版ごとに試験一式を流す）で
+    CI の test ジョブの時間の大半を占めたため（PR #7 で 13分38秒）。
+    """
+
+    CONDITIONS = ("condition1", "condition2", "condition3", "condition4", "condition5", "delay45")
+
+    @classmethod
+    def setUpClass(cls):
+        cls._shared = tempfile.TemporaryDirectory()
+        cls.made: dict[str, tuple[Scenario, Path]] = {}
+        for name in cls.CONDITIONS:
+            scenario = Scenario(Path(cls._shared.name) / name)
+            cls.made[name] = (scenario, getattr(scenario, name)())
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._shared.cleanup()
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def out(self, name: str) -> Path:
+        return self.made[name][1]
+
+    def copy_of(self, name: str) -> Path:
+        """書き換える試験のための、作り物の dist の写し。"""
+        target = self.tmp / f"{name}-dist"
+        shutil.copytree(self.out(name), target)
+        return target
+
+    def panel(self, out: Path, code: str = "130000") -> str:
+        return panel(out, code)
+
     # 1
     def test_each_condition_shows_its_text(self):
-        out = self.condition1()
+        out = self.out("condition1")
         self.assertIn("東京都波浪警報・注意報</h3>", self.panel(out))
         self.assertIn("この電文のほかに発表中の警報・注意報がある場合があります", self.panel(out))
-        self.fresh()
-        self.assertIn("この区域の警報・注意報の電文は、取得した範囲にありませんでした。", self.panel(self.condition2()))
-        self.fresh()
-        p3 = self.panel(self.condition3(), "270000")
+        self.assertIn("この区域の警報・注意報の電文は、取得した範囲にありませんでした。", self.panel(self.out("condition2")))
+        p3 = self.panel(self.out("condition3"), "270000")
         self.assertIn("最新の取得に失敗したか、新しさを確かめられませんでした（理由: HTTP 500）", p3)
-        self.fresh()
-        self.assertIn("警報・注意報を取得できませんでした（理由: HTTP 404）", self.panel(self.condition4()))
-        self.fresh()
-        self.assertIn("この電文の見出し文は空でした。", self.panel(self.condition5(), "270000"))
+        self.assertIn("警報・注意報を取得できませんでした（理由: HTTP 404）", self.panel(self.out("condition4")))
+        self.assertIn("この電文の見出し文は空でした。", self.panel(self.out("condition5"), "270000"))
 
     # 2
     def test_notice_and_link_in_every_condition(self):
-        for make, code in ((self.condition1, "130000"), (self.condition2, "130000"), (self.condition3, "270000"),
-                           (self.condition4, "130000"), (self.condition5, "270000")):
-            self.fresh()
-            panel = self.panel(make(), code)
-            self.assertIn(NULL_NOTICE, panel, make.__name__)
+        for name, code in (("condition1", "130000"), ("condition2", "130000"), ("condition3", "270000"),
+                           ("condition4", "130000"), ("condition5", "270000")):
+            panel = self.panel(self.out(name), code)
+            self.assertIn(NULL_NOTICE, panel, name)
             self.assertIn(f'<a href="https://www.jma.go.jp/bosai/warning/#area_type=offices&amp;area_code={code}" rel="noopener noreferrer">', panel)
             self.assertIn("「発表」「継続」の行だけを載せています", panel)
 
     # 3
     def test_not_meaning_none_and_previous(self):
-        self.assertIn(NOT_MEANING, self.panel(self.condition2()))
-        self.fresh()
-        self.assertIn(NOT_MEANING, self.panel(self.condition4()))
-        self.fresh()
-        self.assertIn(NOT_MEANING, self.panel(self.condition5(), "270000"))
-        self.fresh()
-        p3 = self.panel(self.condition3(), "270000")
+        self.assertIn(NOT_MEANING, self.panel(self.out("condition2")))
+        self.assertIn(NOT_MEANING, self.panel(self.out("condition4")))
+        self.assertIn(NOT_MEANING, self.panel(self.out("condition5"), "270000"))
+        p3 = self.panel(self.out("condition3"), "270000")
         self.assertIn("下は前回（", p3)
         self.assertIn("理由: HTTP 500", p3)
 
     # 4
     def test_forbidden_phrases_are_caught(self):
-        out = self.condition1()
+        out = self.copy_of("condition1")
         page = out / "about.html"
         text = page.read_text(encoding="utf-8")
         for bad in ("警報は　ありません", "警報等はありません", "注意報は\n解除されています", "ﾘｱﾙﾀｲﾑ", "常に最新"):
@@ -204,21 +236,17 @@ class WarningPanelTest(unittest.TestCase):
 
     # 5
     def test_own_texts_are_not_caught(self):
-        for make in (self.condition1, self.condition2, self.condition3, self.condition4, self.condition5):
-            self.fresh()
-            out = make()
-            self.assertEqual(site_hooks.phrase_problems(out), ([], []), make.__name__)
-            self.assertEqual(self.gate(out), ([], []), make.__name__)
-        self.fresh()
-        self.turn_on(delay=45)
-        self.fetch_all()
-        out = self.build()
+        for name in ("condition1", "condition2", "condition3", "condition4", "condition5"):
+            scenario, out = self.made[name]
+            self.assertEqual(site_hooks.phrase_problems(out), ([], []), name)
+            self.assertEqual(scenario.gate(out), ([], []), name)
+        out = self.out("delay45")
         self.assertIn("この欄は、当サイトの観測では最大45分遅れました（気象庁側の遅れは含みません）。", self.panel(out))
         self.assertEqual(site_hooks.phrase_problems(out), ([], []))
 
     # 6
     def test_phrases_inside_data_copy_are_not_caught(self):
-        out = self.condition1()
+        out = self.copy_of("condition1")
         area = out / "area" / "130000.html"
         html = area.read_text(encoding="utf-8")
         self.assertIn(">注意報を解除します。</p>", html)  # 気象庁の原文の見出し文（data-copy の中）
@@ -228,8 +256,8 @@ class WarningPanelTest(unittest.TestCase):
 
     # 7
     def test_telegram_strings_are_copied_character_for_character(self):
-        out = self.condition1()
-        payload = self.warn_json()
+        scenario, out = self.made["condition1"]
+        payload = scenario.warn_json()
         for code in CODES:
             scan = Copies()
             scan.feed((out / "area" / f"{code}.html").read_text(encoding="utf-8"))
@@ -239,34 +267,30 @@ class WarningPanelTest(unittest.TestCase):
                 for key in path:
                     value = value[key]
                 self.assertEqual(text, value, path)
-        self.assertEqual(self.gate(out), ([], []))
+        self.assertEqual(scenario.gate(out), ([], []))
 
     # 8
     def test_section_max_age_is_the_delay_or_90(self):
-        out = self.condition1()
-        self.assertIn('data-max-age-minutes="90"', self.panel(out))
-        self.fresh()
-        self.turn_on(delay=45)
-        self.fetch_all()
-        panel = self.panel(self.build())
+        self.assertIn('data-max-age-minutes="90"', self.panel(self.out("condition1")))
+        panel = self.panel(self.out("delay45"))
         self.assertIn('<p data-section-stale data-fetched-at="2026-10-24T05:00:00Z" data-max-age-minutes="45" hidden></p>', panel)
 
     # 9
     def test_time_line_in_conditions_2_and_4(self):
-        self.assertRegex(self.panel(self.condition2()), TIME_LINE)
-        self.fresh()
-        panel = self.panel(self.condition4())
+        self.assertRegex(self.panel(self.out("condition2")), TIME_LINE)
+        panel = self.panel(self.out("condition4"))
         self.assertRegex(panel, TIME_LINE)
         self.assertIn("フィードの最終更新: 確かめられませんでした", panel)  # jma-feed の記録が無い
 
     # 10
     def test_stale_watcher_shows_condition_3_or_4(self):
-        self.turn_on()
-        stale = self.routes[FEED_URL].replace(b"2026-10-24T13:41:33+09:00", b"2026-10-24T11:41:33+09:00")  # 2時間前
+        scenario = Scenario(self.tmp)  # この試験だけの作り物（見張り役が古い）
+        scenario.turn_on()
+        stale = scenario.routes[FEED_URL].replace(b"2026-10-24T13:41:33+09:00", b"2026-10-24T11:41:33+09:00")  # 2時間前
         # 見張り役が古い（取り込みは ok で warn.json はある）→ 条件3（理由に見張り役）
-        self.routes[FEED_URL] = stale
-        self.fetch_all()
-        out = self.build()
+        scenario.routes[FEED_URL] = stale
+        scenario.fetch_all()
+        out = scenario.build()
         status = json.loads((out / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(status["sources"]["warn"]["state"], common.STATE_UNREADABLE)
         panel = self.panel(out)
@@ -274,22 +298,21 @@ class WarningPanelTest(unittest.TestCase):
         self.assertIn("見張り役（jma-feed）", panel)
         self.assertNotIn("この区域の警報・注意報の電文は", panel)
         # warn.json も無い → 条件4（理由に見張り役）
-        (self.root / "data" / "warn.json").unlink()
-        panel = self.panel(self.build())
+        (scenario.root / "data" / "warn.json").unlink()
+        panel = self.panel(scenario.build())
         self.assertIn("警報・注意報を取得できませんでした（理由: 見張り役（jma-feed）", panel)
 
     # 11
     def test_two_kinds_of_the_same_office_both_appear(self):
-        out = self.condition1()
-        panel = self.panel(out)
+        panel = self.panel(self.out("condition1"))
         titles = re.findall(r"<h3[^>]*>([^<]+)</h3>", panel)
         self.assertGreaterEqual(len(titles), 2)
         self.assertIn("東京都波浪警報・注意報", titles)
         self.assertIn("東京都雷注意報", titles)
 
     def test_only_issued_and_continued_rows_are_shown(self):
-        out = self.condition1()
-        payload = self.warn_json()
+        scenario, out = self.made["condition1"]
+        payload = scenario.warn_json()
         shown = 0
         for code in CODES:
             scan = Copies()

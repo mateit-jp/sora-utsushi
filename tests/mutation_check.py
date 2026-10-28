@@ -205,9 +205,10 @@ MUTANTS = [
 
 
 def run_tests(root: Path) -> int:
+    # -f: 最初の失敗で止める。検算に要るのは「赤になったか」だけで、生き残り（全部が緑）の判定は変わらない。
     try:
         proc = subprocess.run(
-            [sys.executable, "-I", "-m", "unittest", "discover", "-s", "tests", "-q"],
+            [sys.executable, "-I", "-m", "unittest", "discover", "-s", "tests", "-q", "-f"],
             cwd=root,
             capture_output=True,
             text=True,
