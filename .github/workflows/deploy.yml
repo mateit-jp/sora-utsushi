@@ -35,6 +35,8 @@ jobs:
           python-version: "3.13"
       - name: 外のデータを三状態で取り込む（前回分は公開中のサイトから読む）
         run: python3 -I tools/fetch.py --previous-from-live
+      - name: 警報・注意報の電文を二段で取り込む（前回分は公開中のサイトから読む）
+        run: python3 -I tools/fetch_jma_warning.py --previous-from-live
       - name: 公開用に生成する（未設定が残っていれば止まる）
         run: python3 -I tools/build.py --out dist --production
       - name: 公開してよいかを検査する
